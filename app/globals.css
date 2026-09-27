@@ -1,26 +1,477 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: #291d21;
+  --color-cream: #f7efe9;
+  --color-muted: #cbb8b6;
+  --color-accent: #91304e;
+  --font-sans: var(--font-body);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #291d21;
+  color: #f7efe9;
+  font-family: var(--font-body), sans-serif;
+  font-size: 16px;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-heading), serif;
+  font-weight: 400;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+:focus-visible {
+  outline: 2px solid #f7efe9;
+  outline-offset: 4px;
+}
+a {
+  color: inherit;
+}
+.shell {
+  max-width: 1100px;
+  margin: auto;
+  padding: 0 28px;
+}
+.brandbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0;
+  border-bottom: 1px solid #f7efe921;
+}
+.brand {
+  width: 116px;
+  height: 52px;
+  object-fit: contain;
+  background: #f7efe9;
+  border-radius: 6px;
+}
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #cbb8b6;
+}
+.hero {
+  text-align: center;
+  max-width: 620px;
+  margin: 52px auto 36px;
+}
+.hero h1 {
+  font-size: clamp(34px, 5vw, 52px);
+  line-height: 1.2;
+  margin: 16px 0;
+}
+.hero p {
+  color: #cbb8b6;
+  line-height: 1.7;
+  max-width: 420px;
+  margin: auto;
+}
+.ornament {
+  color: #c48a97;
+  font-size: 26px;
+  margin-bottom: 18px;
+}
+.booking-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 28px;
+  align-items: start;
+  max-width: 940px;
+  margin: 0 auto 60px;
+}
+.card {
+  background: #332429;
+  border: 1px solid #f7efe91c;
+  border-radius: 18px;
+  padding: 30px;
+}
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 25px;
+  border-bottom: 1px solid #f7efe91a;
+  margin: 0 0 28px;
+  list-style: none;
+  gap: 8px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  color: #cbb8b6;
+}
+.step b {
+  display: grid;
+  place-items: center;
+  border: 1px solid #cbb8b648;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 500;
+}
+.step.active {
+  color: #f7efe9;
+}
+.step.active b {
+  background: #91304e;
+  border-color: #91304e;
+}
+.section-title {
+  margin: 0 0 7px;
+  font-size: 25px;
+}
+.section-title:focus {
+  outline: none;
+}
+.muted {
+  color: #cbb8b6;
+}
+.small {
+  font-size: 13px;
+  line-height: 1.65;
+}
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 26px 0 20px;
+  font-size: 15px;
+}
+.calendar-header button {
+  background: none;
+  border: 1px solid #cbb8b630;
+  color: #f7efe9;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  text-align: center;
+}
+.weekday {
+  font-size: 11px;
+  color: #cbb8b6;
+  padding: 5px 0 10px;
+}
+.day {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: #f7efe9;
+  font-size: 14px;
+  aspect-ratio: 1;
+  max-height: 54px;
+}
+.day:hover:not(:disabled) {
+  border-color: #cbb8b680;
+}
+.day.selected {
+  background: #91304e;
+}
+.legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 15px;
+  font-size: 11px;
+  color: #cbb8b6;
+}
+.legend span::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: #cbb8b6;
+}
+.legend span:first-child::before {
+  background: #c75a7a;
+}
+.field-title {
+  margin: 27px 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+.slot {
+  border: 1px solid #cbb8b638;
+  padding: 12px;
+  background: transparent;
+  border-radius: 9px;
+  color: #f7efe9;
+  font-size: 14px;
+}
+.slot.selected {
+  border-color: #d0899e;
+  background: #91304e4d;
+}
+.primary {
+  display: block;
+  width: 100%;
+  padding: 15px 18px;
+  border: 1px solid #a34060;
+  border-radius: 10px;
+  background: #91304e;
+  color: #f7efe9;
+  font-weight: 600;
+  margin-top: 25px;
+}
+.primary:hover:not(:disabled) {
+  background: #a33d5d;
+}
+.secondary {
+  padding: 11px 16px;
+  background: transparent;
+  color: #cbb8b6;
+  border: 1px solid #cbb8b640;
+  border-radius: 9px;
+}
+.back {
+  border: 0;
+  color: #cbb8b6;
+  background: none;
+  padding: 18px 0 0;
+  font-size: 13px;
+}
+.summary {
+  padding: 26px 24px;
+}
+.summary h2 {
+  font-size: 21px;
+  margin: 0 0 22px;
+}
+.summary-row {
+  border-bottom: 1px solid #f7efe91a;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+}
+.summary-row p {
+  margin: 5px 0 0;
+  font-size: 14px;
+}
+.summary-row span {
+  font-size: 11px;
+  color: #cbb8b6;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.note {
+  margin-top: 22px;
+  padding: 0 6px;
+}
+.note h3 {
+  font-family: var(--font-body);
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+.note p {
+  color: #cbb8b6;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.field {
+  display: block;
+  margin: 22px 0;
+  font-size: 14px;
+}
+.field input,
+.filters input,
+.filters select {
+  display: block;
+  width: 100%;
+  margin-top: 9px;
+  background: #291d21;
+  border: 1px solid #cbb8b647;
+  padding: 14px;
+  border-radius: 9px;
+  color: #f7efe9;
+  min-height: 48px;
+}
+.field small {
+  display: block;
+  color: #cbb8b6;
+  margin-top: 7px;
+}
+.consent {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 18px 0;
+  color: #cbb8b6;
+}
+.consent input {
+  accent-color: #91304e;
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.error {
+  background: #6a243347;
+  color: #ffd3d5;
+  border: 1px solid #c8708250;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin: 16px 0;
+}
+.receipt {
+  text-align: center;
+  padding: 28px 0 10px;
+}
+.receipt .check {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #91304e40;
+  color: #e4b2c0;
+  font-size: 28px;
+  margin: 0 auto 24px;
+}
+.reference {
+  letter-spacing: 0.08em;
+  font-size: 17px;
+  padding: 18px 8px;
+  border: 1px dashed #cbb8b651;
+  margin-top: 22px;
+  word-break: break-word;
+}
+footer {
+  text-align: center;
+  border-top: 1px solid #f7efe919;
+  padding: 25px 0;
+  color: #cbb8b6;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+}
+.admin {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 24px;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  margin: 24px 0;
+}
+.filters label {
+  flex: 1;
+  min-width: 150px;
+  font-size: 13px;
+}
+.reservation-item {
+  margin: 14px 0;
+}
+.reservation-item h2 {
+  font-size: 22px;
+}
+.status-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+@media (max-width: 700px) {
+  .shell {
+    padding: 0 20px;
+  }
+  .brandbar {
+    padding: 15px 0;
+  }
+  .brand {
+    width: 96px;
+    height: 46px;
+  }
+  .brandbar .eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+  .hero {
+    margin: 32px auto 28px;
+  }
+  .hero p {
+    font-size: 14px;
+    padding: 0 10px;
+  }
+  .hero h1 {
+    margin-top: 12px;
+  }
+  .booking-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    margin-bottom: 36px;
+  }
+  .booking-layout > * {
+    width: 100%;
+  }
+  .card {
+    padding: 24px 19px;
+    border-radius: 14px;
+  }
+  .summary {
+    padding: 22px;
+  }
+  .step {
+    gap: 6px;
+    font-size: 11px;
+  }
+  .step b {
+    width: 25px;
+    height: 25px;
+  }
+  .day {
+    min-height: 35px;
+  }
+  .ornament {
+    margin-bottom: 12px;
   }
 }
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: no-preference) {
+  button {
+    transition:
+      background 0.18s,
+      border-color 0.18s;
+  }
 }
