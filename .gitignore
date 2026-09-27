@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+/.npm-cache/
+/test-results/
+/playwright-report/
+/.config-push/
 
 # vercel
 .vercel
