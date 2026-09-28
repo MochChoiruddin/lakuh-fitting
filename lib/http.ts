@@ -11,7 +11,7 @@ export function sameOrigin(req: Request) {
   if (req.headers.get("origin") !== new URL(req.url).origin)
     throw new Error("FORBIDDEN");
 }
-export async function body(req: Request) {
+export async function body(req: Request, maxBytes = 4096) {
   if (!req.headers.get("content-type")?.includes("application/json"))
     throw new Error("INVALID_BODY");
   const reader = req.body?.getReader();
@@ -22,7 +22,7 @@ export async function body(req: Request) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > 4096) {
+    if (size > maxBytes) {
       await reader.cancel();
       throw new Error("INVALID_BODY");
     }

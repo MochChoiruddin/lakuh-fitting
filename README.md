@@ -1,6 +1,6 @@
 # Lakuh Fitting
 
-Reservasi fitting dan admin minimal. Lihat [PRD](docs/01-PRD.md), [desain teknis](docs/02-TECHNICAL-DESIGN.md), dan [hasil verifikasi](docs/03-VERIFICATION.md).
+Appointment Free Visit hari ini saja (Asia/Jakarta), 10 slot 11.00–20.00, dan admin minimal. Lihat [PRD](docs/01-PRD.md), [desain teknis](docs/02-TECHNICAL-DESIGN.md), dan [hasil verifikasi](docs/03-VERIFICATION.md).
 
 ```sh
 npm ci
@@ -23,6 +23,6 @@ npm run test:secrets
 
 Tes browser memakai Chromium Playwright, fixture API untuk alur booking, serta request nyata untuk proteksi route. Install browser dengan `PLAYWRIGHT_BROWSERS_PATH` diarahkan ke `node_modules/.cache/ms-playwright`, lalu `npx playwright install chromium`.
 
-Tes database dan concurrency membutuhkan Supabase CLI login/link. Jalankan pada project fitting yang dituju. Tes SQL melakukan rollback; tes concurrency membuat data sintetis sementara dan menghapusnya berdasarkan UUID khusus run. Jangan arahkan ke database aplikasi lain.
+Tes database membutuhkan Supabase CLI login/link. Tes integrasi/concurrency memakai localhost:3000 yang berjalan dengan .env.local dan project lakuh-fitting; jalankan node scripts/free-visit-acceptance.mjs saat masih ada slot hari ini sebelum cutoff. Jalankan pada project fitting yang dituju. Tes SQL melakukan rollback; tes concurrency membuat data sintetis sementara dan menghapusnya berdasarkan UUID khusus run. Jangan arahkan ke database aplikasi lain.
 
 Migration: `npm run db:push`. Cron deployment nanti: `GET /api/cron/reminders` setiap menit dengan bearer `CRON_SECRET`. Provisioning admin, keamanan environment, template Meta, dan batas operasional dijelaskan dalam desain teknis.

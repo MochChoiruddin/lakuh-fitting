@@ -1,80 +1,123 @@
-import { SLOTS } from "../../lib/schedule.mjs";
 import { test, expect } from "@playwright/test";
-test("mobile three-step flow, consent, normalized phone and receipt", async ({
+import {
+  enterDetails,
+  mockAvailability,
+  noOverflow,
+  termsStep,
+} from "./helpers";
+import { CONSENTS, TERMS_VERSION } from "../../lib/free-visit";
+for (const unknown of [false, true])
+  test(`Free Visit flow with event date ${unknown ? "unknown" : "known"}`, async ({
+    page,
+  }) => {
+    await mockAvailability(page);
+    let payload: Record<string, unknown> = {};
+    await page.route("**/api/reservations", (route) => {
+      payload = route.request().postDataJSON();
+      return route.fulfill({
+        status: 201,
+        json: {
+          ...payload,
+          reference: "LK-TEST-RECEIPT",
+          status: "pending",
+          appointment_at: `${payload.date}T${payload.slot}:00+07:00`,
+        },
+      });
+    });
+    await page.goto("/");
+    await expect(page).toHaveURL(/reservasi/);
+    await expect(
+      page.getByRole("heading", {
+        name: "Appointment Free Visit",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.locator(".date-strip")).toHaveCount(0);
+    await expect(page.locator(".slots button")).toHaveCount(10);
+    await enterDetails(page, unknown);
+    const event = page.getByLabel("Tanggal Acara", { exact: true });
+    if (unknown) {
+      await expect(event).toBeDisabled();
+      await expect(event).toHaveValue("");
+    }
+    await expect(
+      page.getByLabel("Lingkar Dada (cm)", { exact: true }),
+    ).not.toHaveAttribute("min");
+    await expect(
+      page.getByLabel("Lingkar Dada (cm)", { exact: true }),
+    ).not.toHaveAttribute("max");
+    await termsStep(page);
+    const submit = page.getByRole("button", { name: "Konfirmasi reservasi" });
+    for (const [, label] of CONSENTS) {
+      await expect(submit).toBeDisabled();
+      await page.getByLabel(label, { exact: true }).check();
+    }
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page.locator(".reference")).toContainText("LK-TEST-RECEIPT");
+    expect(payload.phone).toBe("6281234567890");
+    expect(payload.bust_circumference_cm).toBe(92.5);
+    expect(payload.event_date_unknown).toBe(unknown);
+    expect(payload.event_date).toBe(unknown ? null : "2099-12-01");
+    expect(payload.terms_version).toBe(TERMS_VERSION);
+    for (const [key] of CONSENTS) expect(payload[key]).toBe(true);
+    await expect(page.locator(".receipt")).toContainText("92.5 cm");
+    await expect(page.locator(".receipt")).toContainText("Kak Ayu");
+    await noOverflow(page);
+  });
+test("field errors and exclusive event date choice", async ({ page }) => {
+  await mockAvailability(page);
+  await page.goto("/reservasi");
+  await page.getByRole("button", { name: "20.00", exact: true }).click();
+  await page.getByRole("button", { name: "Lanjutkan" }).click();
+  await page.getByRole("button", { name: "Baca syarat" }).click();
+  for (const id of ["name", "phone", "bust_circumference_cm", "event_date"])
+    await expect(page.locator(`#${id}-error`)).toBeVisible();
+  await page.getByLabel("Tanggal Acara", { exact: true }).fill("2000-01-01");
+  await page.getByRole("button", { name: "Baca syarat" }).click();
+  await expect(page.locator("#event_date-error")).toBeVisible();
+  await page.getByLabel("Saya belum memiliki tanggal acara pasti").check();
+  await expect(page.getByLabel("Tanggal Acara", { exact: true })).toHaveValue(
+    "",
+  );
+  await expect(
+    page.getByLabel("Tanggal Acara", { exact: true }),
+  ).toBeDisabled();
+  await page.getByLabel("Saya belum memiliki tanggal acara pasti").uncheck();
+  await page.getByRole("button", { name: "Baca syarat" }).click();
+  await expect(page.locator("#event_date-error")).toBeVisible();
+});
+test("API failure/malformed payload are unknown availability, retry restores slots", async ({
   page,
 }) => {
-  await page.route("**/api/availability?*", (route) =>
-    route.fulfill({
-      json: {
-        slots: SLOTS.map((slot) => ({
-          slot,
-          available: true,
-        })),
-      },
-    }),
-  );
-  let payload: Record<string, unknown> = {};
-  await page.route("**/api/reservations", (route) => {
-    payload = route.request().postDataJSON();
-    return route.fulfill({
-      status: 201,
-      json: { reference: "LK-TEST-RECEIPT", status: "pending" },
-    });
-  });
-  await page.goto("/");
-  await expect(page).toHaveURL(/reservasi/);
-  await expect(page.getByRole("button", { name: "Lanjutkan" })).toBeDisabled();
-  await page.getByRole("button", { name: "11.00", exact: true }).click();
-  await page.getByRole("button", { name: "Lanjutkan" }).click();
-  await page.getByLabel("Nama lengkap").fill("Test Guest");
-  await page.getByLabel("Nomor WhatsApp").fill("081234567890");
-  await page.getByRole("button", { name: "Periksa reservasi" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Lengkapi datamu" }),
-  ).toBeVisible();
-  await page.getByRole("checkbox").nth(0).check();
-  await page.getByRole("checkbox").nth(1).check();
-  await page.getByRole("button", { name: "Periksa reservasi" }).click();
-  await expect(page.getByText("+6281234567890", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Konfirmasi reservasi" }).click();
-  await expect(page.getByText("LK-TEST-RECEIPT")).toBeVisible();
-  expect(payload.phone).toBe("6281234567890");
-  expect(payload.policy).toBe(true);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  await page.screenshot({
-    path: "test-results/mobile-receipt.png",
-    fullPage: true,
-  });
-});
-test("mobile availability error fails closed", async ({ page }) => {
-  await page.route("**/api/availability?*", (route) =>
-    route.fulfill({ status: 503, json: { error: "Unavailable" } }),
+  await page.route("**/api/availability?*", (r) =>
+    r.fulfill({ status: 503, json: { error: "Unavailable" } }),
   );
   await page.goto("/reservasi");
   await expect(
     page.getByRole("alert").filter({ hasText: "Ketersediaan" }),
   ).toBeVisible();
+  await expect(page.locator(".slots button")).toHaveCount(0);
+  await page.unroute("**/api/availability?*");
+  await page.route("**/api/availability?*", (r) =>
+    r.fulfill({ json: { slots: [] } }),
+  );
+  await page.getByRole("button", { name: "Muat ulang jadwal" }).click();
   await expect(
-    page.getByRole("button", { name: "11.00", exact: true }),
-  ).toBeDisabled();
-  await page.screenshot({
-    path: "test-results/mobile-calendar.png",
-    fullPage: true,
-  });
+    page.getByRole("alert").filter({ hasText: "Ketersediaan" }),
+  ).toBeVisible();
+  await page.unroute("**/api/availability?*");
+  await mockAvailability(page);
+  await page.getByRole("button", { name: "Muat ulang jadwal" }).click();
+  await expect(
+    page.getByRole("button", { name: "20.00", exact: true }),
+  ).toBeEnabled();
 });
-test("admin and cron do not expose data without authorization", async ({
-  page,
-  request,
-}) => {
+test("admin and cron remain protected", async ({ page, request }) => {
   await page.goto("/admin");
   await expect(
     page.getByRole("heading", { name: "Masuk ke Lakuh" }),
   ).toBeVisible();
-  const admin = await request.get("/api/admin/reservations");
-  expect([401, 503]).toContain(admin.status());
+  expect((await request.get("/api/admin/reservations")).status()).toBe(401);
   expect((await request.get("/api/cron/reminders")).status()).toBe(401);
 });

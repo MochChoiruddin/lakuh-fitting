@@ -7,15 +7,26 @@ import {
   normalizePhone,
   validateBooking,
 } from "../lib/booking";
-describe("Jakarta availability", () => {
-  it("offers ten tomorrow slots and applies today's 20:00 cutoff", () => {
+import { CONSENTS, TERMS_VERSION } from "../lib/free-visit";
+describe("same-day Jakarta availability", () => {
+  it("uses Jakarta midnight, not UTC date", () => {
+    expect(jakartaDate(new Date("2026-09-26T17:00:00Z"))).toBe("2026-09-27");
+    expect(dates(new Date("2026-09-26T17:00:00Z"))).toEqual(["2026-09-27"]);
+  });
+  it("keeps ten starts and rejects tomorrow/yesterday", () => {
     expect(SLOTS).toHaveLength(10);
     expect(SLOTS[0]).toBe("11:00");
     expect(SLOTS.at(-1)).toBe("20:00");
-    for (const slot of SLOTS)
+    for (const slot of SLOTS) {
       expect(
-        bookable("2026-09-28", slot, new Date("2026-09-27T23:59:59+07:00")),
-      ).toBe(true);
+        bookable("2026-09-28", slot, new Date("2026-09-27T00:00:00+07:00")),
+      ).toBe(false);
+      expect(
+        bookable("2026-09-26", slot, new Date("2026-09-27T00:00:00+07:00")),
+      ).toBe(false);
+    }
+  });
+  it("applies exact 60-minute cutoff and 11:36 acceptance", () => {
     expect(
       bookable("2026-09-27", "20:00", new Date("2026-09-27T19:00:00+07:00")),
     ).toBe(true);
@@ -26,70 +37,92 @@ describe("Jakarta availability", () => {
         new Date("2026-09-27T19:00:00.001+07:00"),
       ),
     ).toBe(false);
-  });
-  it("uses Jakarta midnight and includes today through day 30", () => {
-    const now = new Date("2026-09-26T17:00:00Z");
-    expect(jakartaDate(now)).toBe("2026-09-27");
-    expect(dates(now)).toHaveLength(31);
-    expect(dates(now).at(-1)).toBe("2026-10-27");
-  });
-  it("allows exactly 60 minutes but rejects one millisecond later", () => {
     expect(
-      bookable("2026-09-27", "11:00", new Date("2026-09-27T10:00:00+07:00")),
-    ).toBe(true);
-    expect(
-      bookable(
-        "2026-09-27",
-        "11:00",
-        new Date("2026-09-27T10:00:00.001+07:00"),
+      SLOTS.filter((s) =>
+        bookable("2026-09-27", s, new Date("2026-09-27T11:36:00+07:00")),
       ),
-    ).toBe(false);
-  });
-  it("rejects past, invalid, unsupported slot and outside window", () => {
-    const now = new Date("2026-09-27T00:00:00+07:00");
-    for (const d of ["2026-09-26", "2026-10-28", "2026-02-30", "bad"])
-      expect(bookable(d, "11:00", now)).toBe(false);
-    expect(bookable("2026-09-27", "21:00", now)).toBe(false);
+    ).toEqual(SLOTS.slice(2));
   });
 });
-describe("validation", () => {
+const valid = {
+  name: "Test Guest",
+  phone: "081234567890",
+  date: "2026-09-27",
+  slot: "20:00",
+  key: "a1234567-1234-4234-8234-123456789012",
+  bust_circumference_cm: 92.5,
+  event_plan: "",
+  event_date: "2026-09-28",
+  event_date_unknown: false,
+  consent_on_time: true,
+  consent_whatsapp: true,
+  consent_stock: true,
+  consent_terms: true,
+  terms_version: TERMS_VERSION,
+};
+describe("Free Visit validation", () => {
   it.each([
     "081234567890",
     "+62 812-3456-7890",
     "6281234567890",
     "81234567890",
-  ])("normalizes %s", (value) =>
-    expect(normalizePhone(value)).toBe("6281234567890"),
-  );
+  ])("normalizes %s", (v) => expect(normalizePhone(v)).toBe("6281234567890"));
   it.each([
     "123",
     "+14155551212",
     "0211234567",
     "0812abc1234",
     "++6281234567890",
-    "628123456789012345",
-  ])("rejects %s", (value) => expect(() => normalizePhone(value)).toThrow());
-  const valid = {
-    name: "Test Guest",
-    instagram: "",
-    phone: "081234567890",
-    date: "2026-09-27",
-    slot: "11:00",
-    key: "a1234567-1234-4234-8234-123456789012",
-    policy: true,
-    reminder: true,
-  };
-  it.each(SLOTS)("accepts configured start %s", (slot) => {
-    expect(validateBooking({ ...valid, slot }).slot).toBe(slot);
+  ])("rejects phone %s", (v) => expect(() => normalizePhone(v)).toThrow());
+  it.each(SLOTS)("accepts configured start %s", (slot) =>
+    expect(validateBooking({ ...valid, slot }).slot).toBe(slot),
+  );
+  it("requires finite numeric bust without invented min/max", () => {
+    for (const bust_circumference_cm of [
+      null,
+      undefined,
+      "",
+      NaN,
+      Infinity,
+      "92",
+    ])
+      expect(() =>
+        validateBooking({ ...valid, bust_circumference_cm }),
+      ).toThrow();
+    for (const bust_circumference_cm of [0, -1, 0.01, 92.5, 10000])
+      expect(
+        validateBooking({ ...valid, bust_circumference_cm })
+          .bust_circumference_cm,
+      ).toBe(bust_circumference_cm);
   });
-  it("requires both consents and valid name/key", () => {
+  it("requires known date or explicitly unknown with null", () => {
     for (const change of [
-      { policy: false },
-      { reminder: false },
-      { policy: "true" },
+      { event_date: null },
+      { event_date: "2026-09-26" },
+      { event_date: "2026-02-30" },
+      { event_date_unknown: true },
+      { event_date_unknown: "true" },
+    ])
+      expect(() => validateBooking({ ...valid, ...change })).toThrow();
+    expect(
+      validateBooking({ ...valid, event_date_unknown: true, event_date: null })
+        .event_date,
+    ).toBe(null);
+    expect(
+      validateBooking({ ...valid, event_date: valid.date }).event_date,
+    ).toBe(valid.date);
+  });
+  it.each(CONSENTS)("requires boolean consent %s", (key) => {
+    for (const value of [false, undefined, "true", 1])
+      expect(() => validateBooking({ ...valid, [key]: value })).toThrow();
+  });
+  it("rejects outdated terms, invalid name/key/date/slot", () => {
+    for (const change of [
+      { terms_version: "old" },
       { name: " " },
       { key: "bad" },
-      { instagram: "https://example.com" },
+      { date: "bad" },
+      { slot: "21:00" },
     ])
       expect(() => validateBooking({ ...valid, ...change })).toThrow();
     expect(validateBooking(valid).phone).toBe("6281234567890");

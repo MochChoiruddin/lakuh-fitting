@@ -1,12 +1,24 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { STATUSES, type Status } from "@/lib/booking";
+import Reports from "./reports";
 type Reservation = {
   id: string;
   reference: string;
   name: string;
   instagram: string;
   phone: string;
+  bust_circumference_cm: number | null;
+  event_plan: string | null;
+  event_date: string | null;
+  event_date_unknown: boolean | null;
+  consent_on_time: boolean | null;
+  consent_whatsapp: boolean | null;
+  consent_stock: boolean | null;
+  consent_terms: boolean | null;
+  terms_version: string | null;
+  consented_at: string | null;
+  timezone: string | null;
   appointment_at: string;
   status: Status;
   status_updated_at: string;
@@ -18,6 +30,7 @@ type Reservation = {
   } | null;
 };
 export default function AdminPanel({ authorized }: { authorized: boolean }) {
+  const [revision, setRevision] = useState(0);
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState("");
   const [q, setQ] = useState(""),
@@ -71,6 +84,13 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
     }
   }
   async function change(id: string, next: Status) {
+    if (
+      next === "completed" &&
+      !window.confirm(
+        "Tandai reservasi ini selesai fitting? Status selesai tidak dapat diubah kembali.",
+      )
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -82,6 +102,7 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
       const data = await r.json();
       if (!r.ok) throw new Error(data.error);
       await load();
+      setRevision((value) => value + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal mengubah status.");
     } finally {
@@ -135,6 +156,7 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
           >
             Keluar dari akun
           </button>
+          <Reports revision={revision} />
           <div className="filters">
             <label>
               Cari nama, WA, referensi
@@ -189,6 +211,36 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
                 {r.instagram && ` · @${r.instagram}`}
               </p>
               <p className="small muted">
+                Lingkar dada:{" "}
+                {r.bust_circumference_cm === null
+                  ? "Data lama — belum dicatat"
+                  : `${r.bust_circumference_cm} cm`}
+                <br />
+                Rencana acara: {r.event_plan || "Tidak diisi"}
+                <br />
+                Tanggal acara:{" "}
+                {r.event_date_unknown
+                  ? "Belum memiliki tanggal acara pasti"
+                  : r.event_date || "Data lama — belum dicatat"}
+                <br />
+                {r.terms_version ? (
+                  <>
+                    On time: {r.consent_on_time ? "Ya" : "Tidak"} · Konfirmasi
+                    WhatsApp: {r.consent_whatsapp ? "Ya" : "Tidak"} · Stok:{" "}
+                    {r.consent_stock ? "Ya" : "Tidak"} · Syarat:{" "}
+                    {r.consent_terms ? "Ya" : "Tidak"}
+                    <br />
+                    {r.terms_version} ·{" "}
+                    {r.consented_at &&
+                      new Date(r.consented_at).toLocaleString("id-ID", {
+                        timeZone: "Asia/Jakarta",
+                      })}{" "}
+                    WIB · {r.timezone}
+                    <br />
+                  </>
+                ) : (
+                  "Persetujuan: kebijakan sebelumnya. "
+                )}
                 Audit status:{" "}
                 {new Date(r.status_updated_at).toLocaleString("id-ID", {
                   timeZone: "Asia/Jakarta",
@@ -207,7 +259,7 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
                 {(r.status === "pending"
                   ? ["confirmed", "cancelled"]
                   : r.status === "confirmed"
-                    ? ["cancelled", "completed", "no_show"]
+                    ? ["cancelled", "completed"]
                     : []
                 ).map((s) => (
                   <button
@@ -220,7 +272,7 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
                     }
                     onClick={() => change(r.id, s as Status)}
                   >
-                    {s}
+                    {s === "completed" ? "Selesai fitting" : s}
                   </button>
                 ))}
               </div>
