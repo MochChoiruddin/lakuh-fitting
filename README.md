@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lakuh Fitting
 
-## Getting Started
+Appointment Free Visit hari ini saja (Asia/Jakarta), 10 slot 11.00–20.00, dan admin minimal. Lihat [PRD](docs/01-PRD.md), [desain teknis](docs/02-TECHNICAL-DESIGN.md), dan [hasil verifikasi](docs/03-VERIFICATION.md).
 
-First, run the development server:
-
-```bash
+```sh
+npm ci
+# Salin .env.example ke .env.local dan isi lewat saluran aman.
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`/reservasi` untuk pelanggan, `/admin` untuk operator yang terdaftar. Tanpa environment Supabase, aplikasi menampilkan kegagalan aman dan tidak membuat receipt palsu.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test:browser
+npm run test:db
+npm run test:concurrency
+npm run test:secrets
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Tes browser memakai Chromium Playwright, fixture API untuk alur booking, serta request nyata untuk proteksi route. Install browser dengan `PLAYWRIGHT_BROWSERS_PATH` diarahkan ke `node_modules/.cache/ms-playwright`, lalu `npx playwright install chromium`.
 
-## Learn More
+Tes database membutuhkan Supabase CLI login/link. Tes integrasi/concurrency memakai localhost:3000 yang berjalan dengan .env.local dan project lakuh-fitting; jalankan node scripts/free-visit-acceptance.mjs saat masih ada slot hari ini sebelum cutoff. Jalankan pada project fitting yang dituju. Tes SQL melakukan rollback; tes concurrency membuat data sintetis sementara dan menghapusnya berdasarkan UUID khusus run. Jangan arahkan ke database aplikasi lain.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Migration: `npm run db:push`. Cron deployment nanti: `GET /api/cron/reminders` setiap menit dengan bearer `CRON_SECRET`. Provisioning admin, keamanan environment, template Meta, dan batas operasional dijelaskan dalam desain teknis.
