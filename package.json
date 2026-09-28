@@ -10,14 +10,16 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:browser": "playwright test",
-    "test:db": "supabase db query --linked --file supabase/tests/fitting.sql",
+    "test:db": "supabase db query --linked --file supabase/tests/fitting.sql && supabase db query --linked --file supabase/tests/reports.sql",
     "db:push": "supabase db push --linked",
     "test:concurrency": "node scripts/test-concurrency.mjs",
-    "test:secrets": "node scripts/secret-scan.mjs"
+    "test:secrets": "node scripts/secret-scan.mjs",
+    "test:reports:live": "node scripts/report-acceptance.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
+    "exceljs": "^4.4.0",
     "next": "16.3.6",
     "postgres": "^3.4.9",
     "react": "19.2.8",
@@ -37,5 +39,10 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.2"
+  },
+  "overrides": {
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   }
 }

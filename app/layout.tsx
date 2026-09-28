@@ -13,8 +13,8 @@ const body = Hanken_Grotesk({
   display: "swap",
 });
 export const metadata: Metadata = {
-  title: "Reservasi Fitting · Lakuh",
-  description: "Reservasikan sesi fitting personal di Lakuh.",
+  title: "Appointment Free Visit · Lakuh Attire",
+  description: "Reservasi kunjungan hari ini di butik Lakuh Attire.",
 };
 export default function RootLayout({
   children,

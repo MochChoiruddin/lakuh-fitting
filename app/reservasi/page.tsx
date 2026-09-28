@@ -17,9 +17,9 @@ export default function ReservationPage() {
             sizes="256px"
             preload
           />
-          <h1>Reservasi Fitting</h1>
+          <h1>Appointment Free Visit</h1>
           <p className="reservation-description">
-            Buat janji temu untuk mencoba koleksi kebaya kami langsung di butik.
+            Buat janji kunjungan ke butik Lakuh Attire untuk hari ini.
           </p>
           <div className="boutique-info">
             <p>

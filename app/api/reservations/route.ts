@@ -1,26 +1,26 @@
-import { validateBooking } from "@/lib/booking";
+import { BookingValidationError, validateBooking } from "@/lib/booking";
 import { body, failure, json, rateLimit, sameOrigin } from "@/lib/http";
 import { service } from "@/lib/supabase";
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
     await rateLimit(req, "booking", 15);
-    const raw = await body(req);
+    // Accommodate 2,000 Unicode characters of event details while bounding bytes.
+    const raw = await body(req, 16384);
     let b;
     try {
       b = validateBooking(raw);
     } catch (e) {
-      return json({ error: (e as Error).message }, 400);
+      return json(
+        {
+          error: (e as Error).message,
+          fields: e instanceof BookingValidationError ? e.fields : undefined,
+        },
+        400,
+      );
     }
-    const { data, error } = await service().rpc("book_fitting", {
-      p_key: b.key,
-      p_name: b.name,
-      p_instagram: b.instagram,
-      p_phone: b.phone,
-      p_date: b.date,
-      p_slot: b.slot,
-      p_policy: b.policy,
-      p_reminder: b.reminder,
+    const { data, error } = await service().rpc("book_free_visit", {
+      p_input: b,
     });
     if (error) {
       if (error.code === "23505" || /CUTOFF|INVALID_SLOT/.test(error.message))
@@ -33,7 +33,10 @@ export async function POST(req: Request) {
           { error: "Data berubah. Mulai reservasi baru untuk melanjutkan." },
           409,
         );
-      if (error.message.includes("INVALID_INPUT"))
+      if (
+        error.message.includes("INVALID_INPUT") ||
+        error.code.startsWith("22")
+      )
         return json({ error: "Periksa kembali data reservasi." }, 400);
       throw error;
     }

@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     let query = db
       .from("reservations")
       .select(
-        "id,reference,name,instagram,phone,appointment_at,status,status_updated_at,reminder_jobs(status,attempt_count,safe_error,sent_at)",
+        "id,reference,name,instagram,phone,bust_circumference_cm,event_plan,event_date,event_date_unknown,consent_on_time,consent_whatsapp,consent_stock,consent_terms,terms_version,consented_at,timezone,appointment_at,status,status_updated_at,reminder_jobs(status,attempt_count,safe_error,sent_at)",
       )
       .order("appointment_at", { ascending: false })
       .limit(100);

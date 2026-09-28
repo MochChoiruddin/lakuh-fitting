@@ -1,70 +1,183 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { dates, longDate, normalizePhone, SLOTS } from "@/lib/booking";
+import { receiptWhatsAppUrl } from "@/lib/receipt-whatsapp";
+import {
+  customerErrors,
+  jakartaDate,
+  longDate,
+  normalizePhone,
+  SLOTS,
+  type BookingReceipt,
+  type CustomerInput,
+} from "@/lib/booking";
+import {
+  CONSENTS,
+  STOCK_NOTE,
+  TERMS,
+  TERMS_CLOSING,
+  TERMS_NOTICE,
+  TERMS_VERSION,
+  VISIT_NOTE,
+  type ConsentKey,
+} from "@/lib/free-visit";
+
 type Availability = { slot: string; available: boolean };
-type Receipt = { reference: string; appointment_at: string; status: string };
+const emptyConsents: Record<ConsentKey, boolean> = {
+  consent_on_time: false,
+  consent_whatsapp: false,
+  consent_stock: false,
+  consent_terms: false,
+};
+function Summary({
+  customer,
+  date,
+  slot,
+}: {
+  customer: CustomerInput;
+  date: string;
+  slot: string;
+}) {
+  return (
+    <div aria-label="Ringkasan reservasi">
+      {[
+        ["Kunjungan", `${longDate(date)} · ${slot.replace(":", ".")} WIB`],
+        ["Nama", customer.name],
+        ["WhatsApp", `+${customer.phone}`],
+        ["Lingkar dada", `${customer.bust_circumference_cm} cm`],
+        ["Rencana acara", customer.event_plan || "Tidak diisi"],
+        [
+          "Tanggal acara",
+          customer.event_date_unknown
+            ? "Belum memiliki tanggal acara pasti"
+            : customer.event_date
+              ? longDate(customer.event_date)
+              : "—",
+        ],
+      ].map(([label, value]) => (
+        <div className="summary-row" key={label}>
+          <span>{label}</span>
+          <p>{value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 export default function ReservationForm({ today }: { today: string }) {
-  const allowed = dates(new Date(`${today}T12:00:00+07:00`));
-  const [date, setDate] = useState(today);
-  const [slot, setSlot] = useState(""),
+  const [date, setDate] = useState(today),
+    [slot, setSlot] = useState(""),
     [step, setStep] = useState(1);
   const [slots, setSlots] = useState<Availability[]>([]),
-    [loading, setLoading] = useState(true);
+    [loading, setLoading] = useState(true),
+    [availabilityError, setAvailabilityError] = useState("");
   const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    [busy, setBusy] = useState(false),
+    [retry, setRetry] = useState(0);
   const [name, setName] = useState(""),
-    [instagram, setInstagram] = useState(""),
-    [phone, setPhone] = useState("");
-  const [policy, setPolicy] = useState(false),
-    [reminder, setReminder] = useState(false);
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
-  const key = useRef("");
-  const [attempted, setAttempted] = useState(false);
-  const submitted = useRef(false);
-  const [retry, setRetry] = useState(0);
-  const title = useRef<HTMLHeadingElement>(null);
+    [phone, setPhone] = useState(""),
+    [bust, setBust] = useState("");
+  const [eventPlan, setEventPlan] = useState(""),
+    [eventDate, setEventDate] = useState(""),
+    [eventUnknown, setEventUnknown] = useState(false);
+  const [consents, setConsents] = useState(emptyConsents),
+    [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [receipt, setReceipt] = useState<BookingReceipt | null>(null),
+    [attempted, setAttempted] = useState(false);
+  const key = useRef(""),
+    submitted = useRef(false),
+    title = useRef<HTMLHeadingElement>(null);
+  const customer: CustomerInput = {
+    name,
+    phone,
+    bust_circumference_cm: bust.trim() === "" ? NaN : Number(bust),
+    event_plan: eventPlan,
+    event_date: eventUnknown ? null : eventDate || null,
+    event_date_unknown: eventUnknown,
+  };
+  const dataValid = Object.keys(customerErrors(customer, date)).length === 0;
+  const canSubmit =
+    dataValid && CONSENTS.every(([key]) => consents[key]) && !!slot && !busy;
   useEffect(() => {
     title.current?.focus();
   }, [step, receipt]);
   useEffect(() => {
+    const timer = setInterval(() => {
+      const next = jakartaDate();
+      if (next !== date && !receipt && !attempted) {
+        setDate(next);
+        setSlot("");
+        setStep(1);
+        setSlots([]);
+        setLoading(true);
+        setError("Tanggal kunjungan diperbarui sesuai hari ini di WIB.");
+      }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [date, receipt, attempted]);
+  useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/availability?date=${date}`, { signal: controller.signal })
+    fetch(`/api/availability?date=${date}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
       .then(async (r) => {
         const data = await r.json();
-        if (!r.ok) throw new Error(data.error);
+        if (
+          !r.ok ||
+          !Array.isArray(data.slots) ||
+          data.slots.length !== SLOTS.length ||
+          !SLOTS.every(
+            (slot) =>
+              data.slots.filter(
+                (item: Availability) =>
+                  item?.slot === slot && typeof item.available === "boolean",
+              ).length === 1,
+          )
+        )
+          throw new Error("UNAVAILABLE");
         if (controller.signal.aborted) return;
         setSlots(data.slots);
+        setAvailabilityError("");
         setLoading(false);
       })
-      .catch((e) => {
-        if (e.name !== "AbortError") {
-          setError("Ketersediaan belum dapat dimuat. Silakan coba lagi.");
-          setLoading(false);
-        }
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setSlots([]);
+        setSlot("");
+        setAvailabilityError(
+          "Ketersediaan belum dapat dimuat. Silakan coba lagi.",
+        );
+        setLoading(false);
       });
     return () => controller.abort();
   }, [date, retry]);
-  function chooseDate(value: string) {
-    if (value === date) return;
-    setDate(value);
-    setSlot("");
-    setSlots([]);
-    setLoading(true);
-    setError("");
+  function validateField(field: string) {
+    setFieldErrors((current) => ({
+      ...current,
+      [field]: customerErrors(customer, date)[field] || "",
+    }));
+  }
+  function clearField(field: string) {
+    setFieldErrors((current) => ({ ...current, [field]: "" }));
+  }
+  function fieldError(field: string) {
+    return fieldErrors[field] ? (
+      <span id={`${field}-error`} className="field-error" role="alert">
+        {fieldErrors[field]}
+      </span>
+    ) : null;
   }
   function confirmData(e: React.FormEvent) {
     e.preventDefault();
-    try {
-      setPhone(normalizePhone(phone));
-      setError("");
-      setStep(3);
-    } catch (e) {
-      setError((e as Error).message);
-    }
+    const errors = customerErrors(customer, date);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) return;
+    setName(name.trim());
+    setPhone(normalizePhone(phone));
+    setError("");
+    setStep(3);
   }
   async function submit() {
-    if (submitted.current) return;
+    if (submitted.current || !canSubmit) return;
     submitted.current = true;
     setAttempted(true);
     setBusy(true);
@@ -75,13 +188,11 @@ export default function ReservationForm({ today }: { today: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          instagram,
-          phone,
+          ...customer,
+          ...consents,
           date,
           slot,
-          policy,
-          reminder,
+          terms_version: TERMS_VERSION,
           key: key.current,
         }),
       });
@@ -90,7 +201,18 @@ export default function ReservationForm({ today }: { today: string }) {
         if (response.status === 400 || response.status === 409) {
           key.current = "";
           setAttempted(false);
+          if (data.fields) {
+            setFieldErrors(data.fields);
+            setStep(
+              Object.keys(data.fields).some((field) =>
+                field.startsWith("consent_"),
+              )
+                ? 3
+                : 2,
+            );
+          }
           if (response.status === 409) {
+            setDate(jakartaDate());
             setStep(1);
             setSlot("");
             setSlots([]);
@@ -98,14 +220,17 @@ export default function ReservationForm({ today }: { today: string }) {
             setRetry((v) => v + 1);
           }
         }
-        throw new Error(data.error);
+        throw new Error(
+          data.error ||
+            "Reservasi belum dapat dipastikan. Coba lagi dengan data yang sama.",
+        );
       }
       setReceipt(data);
     } catch (e) {
       setError(
         e instanceof Error
           ? e.message
-          : "Reservasi belum dapat dipastikan. Coba kirim kembali dengan data yang sama.",
+          : "Reservasi belum dapat dipastikan. Coba lagi dengan data yang sama.",
       );
     } finally {
       setBusy(false);
@@ -116,7 +241,7 @@ export default function ReservationForm({ today }: { today: string }) {
     <div className="booking-layout">
       <section className="card" aria-label="Form reservasi fitting">
         <ol className="steps" aria-label="Tahapan reservasi">
-          {["Jadwal", "Data diri", "Konfirmasi"].map((label, i) => (
+          {["Jadwal", "Data diri", "Persetujuan"].map((label, i) => (
             <li
               key={label}
               className={`step ${step === i + 1 ? "active" : ""} ${step > i + 1 ? "complete" : ""}`}
@@ -136,118 +261,107 @@ export default function ReservationForm({ today }: { today: string }) {
               ✓
             </div>
             <h2 ref={title} tabIndex={-1} className="section-title">
-              Sampai bertemu, {name.split(" ")[0]}.
+              Sampai bertemu, {receipt.name.split(" ")[0]}.
             </h2>
-            <p className="muted small">
-              Reservasimu sudah tercatat.
-              <br />
-              Tim Lakuh akan meninjau dan mengonfirmasi jadwalmu.
-            </p>
+            <p className="muted small">Reservasimu sudah tercatat.</p>
             <div className="reference">
               <span className="eyebrow">Nomor referensi</span>
               <br />
               {receipt.reference}
             </div>
-            <p>
-              {longDate(date)}
-              <br />
-              {slot.replace(":", ".")} WIB
-            </p>
+            <Summary
+              customer={receipt}
+              date={jakartaDate(new Date(receipt.appointment_at))}
+              slot={new Intl.DateTimeFormat("en-GB", {
+                timeZone: "Asia/Jakarta",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              }).format(new Date(receipt.appointment_at))}
+            />
             <p className="small muted">
-              Status: {receipt.status}
-              <br />
-              Simpan halaman ini sebagai bukti reservasi.
+              Status: {receipt.status}. Simpan halaman ini sebagai bukti
+              reservasi.
             </p>
             <button className="secondary" onClick={() => window.print()}>
               Simpan / cetak bukti
             </button>
+            <a
+              className="receipt-whatsapp"
+              href={receiptWhatsAppUrl(receipt)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Kirim ke WhatsApp Admin
+            </a>
+            <p className="small muted">
+              Membuka percakapan WhatsApp. Pesan belum dikirim sampai kamu
+              mengirimnya di WhatsApp.
+            </p>
           </div>
         ) : (
           <>
             {step === 1 && (
               <>
                 <h2 ref={title} tabIndex={-1} className="section-title">
-                  Pilih hari &amp; jam
+                  Pilih jam kunjungan
                 </h2>
                 <p className="small muted">
-                  Satu jadwal, satu sesi khusus untukmu. Semua waktu WIB.
+                  Satu customer per slot. Semua waktu WIB.
                 </p>
-                <div className="date-strip-heading">
-                  <span>Pilih tanggal</span>
-                  <span className="muted" id="date-hint">
-                    Geser untuk lainnya <span aria-hidden="true">→</span>
-                  </span>
-                </div>
-                <div
-                  className="date-strip"
-                  role="group"
-                  aria-label="Tanggal reservasi"
-                  aria-describedby="date-hint"
-                >
-                  {allowed.map((d) => {
-                    const day = new Date(d + "T12:00:00+07:00");
-                    return (
-                      <button
-                        key={d}
-                        className={`date-card ${d === date ? "selected" : ""}`}
-                        aria-label={longDate(d)}
-                        aria-pressed={d === date}
-                        onClick={() => chooseDate(d)}
-                      >
-                        <span>
-                          {new Intl.DateTimeFormat("id-ID", {
-                            weekday: "short",
-                            timeZone: "Asia/Jakarta",
-                          }).format(day)}
-                        </span>
-                        <strong>{Number(d.slice(-2))}</strong>
-                        <span>
-                          {new Intl.DateTimeFormat("id-ID", {
-                            month: "short",
-                            timeZone: "Asia/Jakarta",
-                          }).format(day)}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="visit-info" aria-label="Tanggal kunjungan">
+                  <span className="eyebrow">Hari ini</span>
+                  <p>{longDate(date)}</p>
                 </div>
                 <h3 className="field-title">
                   Pilih jam kedatangan <span className="muted">· WIB</span>
                 </h3>
-                <div className="slots" aria-busy={loading}>
-                  {SLOTS.map((s) => (
-                    <button
-                      key={s}
-                      className={`slot ${s === slot ? "selected" : ""}`}
-                      aria-pressed={s === slot}
-                      disabled={
-                        loading || !slots.find((x) => x.slot === s)?.available
-                      }
-                      onClick={() => setSlot(s)}
-                    >
-                      {s.replace(":", ".")}
-                    </button>
-                  ))}
-                </div>
-                <p className="small muted" aria-live="polite">
-                  {loading
-                    ? "Memuat jadwal…"
-                    : slots.length > 0 && !slots.some((s) => s.available)
-                      ? "Jadwal tanggal ini sudah penuh atau melewati batas reservasi."
-                      : "Untuk hari ini, reservasi ditutup 60 menit sebelum jadwal."}
-                </p>
-                {error && (
-                  <button
-                    className="back"
-                    onClick={() => {
-                      setLoading(true);
-                      setError("");
-                      setRetry(retry + 1);
-                    }}
-                  >
-                    Muat ulang jadwal ↻
-                  </button>
+                {!availabilityError && (
+                  <div className="slots" aria-busy={loading}>
+                    {SLOTS.map((s) => (
+                      <button
+                        key={s}
+                        className={`slot ${s === slot ? "selected" : ""}`}
+                        aria-pressed={s === slot}
+                        disabled={
+                          loading || !slots.find((x) => x.slot === s)?.available
+                        }
+                        onClick={() => setSlot(s)}
+                      >
+                        {s.replace(":", ".")}
+                      </button>
+                    ))}
+                  </div>
                 )}
+                <p className="small muted" aria-live="polite">
+                  {availabilityError
+                    ? "Ketersediaan belum diketahui. Muat ulang jadwal untuk mencoba lagi."
+                    : loading
+                      ? "Memuat jadwal…"
+                      : !slots.some((s) => s.available)
+                        ? "Jadwal hari ini sudah penuh atau melewati batas reservasi."
+                        : "Reservasi ditutup 60 menit sebelum jadwal."}
+                </p>
+                {availabilityError && (
+                  <>
+                    <p className="error" role="alert">
+                      {availabilityError}
+                    </p>
+                    <button
+                      className="back"
+                      onClick={() => {
+                        setLoading(true);
+                        setAvailabilityError("");
+                        setRetry((v) => v + 1);
+                      }}
+                    >
+                      Muat ulang jadwal ↻
+                    </button>
+                  </>
+                )}
+                <div className="visit-info">
+                  <p>{VISIT_NOTE}</p>
+                </div>
                 <button
                   className="primary"
                   disabled={!slot || loading}
@@ -261,158 +375,123 @@ export default function ReservationForm({ today }: { today: string }) {
               </>
             )}
             {step === 2 && (
-              <form
-                onSubmit={confirmData}
-                onInvalid={(event) => {
-                  const input = event.target as HTMLInputElement;
-                  const messages: Record<string, string> = {
-                    name: "Isi nama lengkap, 2–80 karakter.",
-                    instagram:
-                      "Gunakan username Instagram tanpa spasi atau tautan.",
-                    phone: "Isi nomor WhatsApp aktif.",
-                    policy: "Persetujuan kebijakan reservasi wajib dicentang.",
-                    reminder: "Persetujuan pengingat WhatsApp wajib dicentang.",
-                  };
-                  setFieldErrors((current) => ({
-                    ...current,
-                    [input.name]: messages[input.name],
-                  }));
-                }}
-                onInput={(event) => {
-                  const input = event.target as HTMLInputElement;
-                  setFieldErrors((current) => ({
-                    ...current,
-                    [input.name]: "",
-                  }));
-                }}
-              >
+              <form onSubmit={confirmData} noValidate>
                 <h2 ref={title} tabIndex={-1} className="section-title">
-                  Lengkapi datamu
+                  Isi identitas dan informasi acara
                 </h2>
-                <p className="small muted">
-                  Agar kami bisa menyiapkan kunjunganmu.
-                </p>
                 <label className="field">
-                  Nama lengkap
+                  Nama Lengkap
                   <input
                     required
-                    minLength={2}
-                    maxLength={80}
                     autoComplete="name"
                     name="name"
-                    aria-invalid={!!fieldErrors.name}
-                    aria-describedby={
-                      fieldErrors.name ? "name-error" : undefined
-                    }
+                    aria-label="Nama Lengkap"
+                    maxLength={80}
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Nama panggilan yang kamu suka"
+                    aria-invalid={!!fieldErrors.name}
+                    aria-describedby="name-error"
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      clearField("name");
+                    }}
+                    onBlur={() => validateField("name")}
                   />
-                  {fieldErrors.name && (
-                    <span className="field-error" id="name-error" role="alert">
-                      {fieldErrors.name}
-                    </span>
-                  )}
+                  {fieldError("name")}
                 </label>
                 <label className="field">
-                  Instagram <span className="muted">(opsional)</span>
-                  <input
-                    maxLength={31}
-                    name="instagram"
-                    aria-invalid={!!fieldErrors.instagram}
-                    aria-describedby={
-                      fieldErrors.instagram ? "instagram-error" : undefined
-                    }
-                    pattern="@?[a-zA-Z0-9._]{0,30}"
-                    value={instagram}
-                    onChange={(e) => setInstagram(e.target.value)}
-                    placeholder="@username"
-                    autoCapitalize="none"
-                  />
-                  {fieldErrors.instagram && (
-                    <span
-                      className="field-error"
-                      id="instagram-error"
-                      role="alert"
-                    >
-                      {fieldErrors.instagram}
-                    </span>
-                  )}
-                </label>
-                <label className="field">
-                  Nomor WhatsApp
+                  Nomor HP/WhatsApp
                   <input
                     required
                     type="tel"
-                    autoComplete="tel"
                     inputMode="tel"
-                    maxLength={22}
+                    autoComplete="tel"
                     name="phone"
-                    aria-invalid={!!error || !!fieldErrors.phone}
-                    aria-describedby={
-                      error || fieldErrors.phone
-                        ? "phone-help phone-error"
-                        : "phone-help"
-                    }
+                    aria-label="Nomor HP/WhatsApp"
+                    maxLength={22}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="08xxxxxxxxxx"
+                    aria-invalid={!!fieldErrors.phone}
+                    aria-describedby="phone-error"
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      clearField("phone");
+                    }}
+                    onBlur={() => validateField("phone")}
                   />
-                  <small id="phone-help">
-                    Gunakan nomor aktif untuk pengingat appointment.
-                  </small>
-                  {(error || fieldErrors.phone) && (
-                    <span id="phone-error" role="alert" className="field-error">
-                      {error || fieldErrors.phone}
-                    </span>
-                  )}
+                  {fieldError("phone")}
+                </label>
+                <label className="field">
+                  Lingkar Dada (cm)
+                  <input
+                    required
+                    type="number"
+                    step="any"
+                    inputMode="decimal"
+                    name="bust_circumference_cm"
+                    aria-label="Lingkar Dada (cm)"
+                    value={bust}
+                    aria-invalid={!!fieldErrors.bust_circumference_cm}
+                    aria-describedby="bust_circumference_cm-error"
+                    onChange={(e) => {
+                      setBust(e.target.value);
+                      clearField("bust_circumference_cm");
+                    }}
+                    onBlur={() => validateField("bust_circumference_cm")}
+                  />
+                  {fieldError("bust_circumference_cm")}
+                </label>
+                <label className="field">
+                  Informasi Rencana Acara{" "}
+                  <span className="muted">(opsional)</span>
+                  <textarea
+                    name="event_plan"
+                    aria-label="Informasi Rencana Acara (opsional)"
+                    maxLength={2000}
+                    rows={3}
+                    value={eventPlan}
+                    aria-invalid={!!fieldErrors.event_plan}
+                    aria-describedby="event_plan-error"
+                    onChange={(e) => {
+                      setEventPlan(e.target.value);
+                      clearField("event_plan");
+                    }}
+                    onBlur={() => validateField("event_plan")}
+                  />
+                  {fieldError("event_plan")}
                 </label>
                 <label className="consent">
                   <input
-                    required
                     type="checkbox"
-                    name="policy"
-                    aria-invalid={!!fieldErrors.policy}
-                    aria-describedby={
-                      fieldErrors.policy ? "policy-error" : undefined
-                    }
-                    checked={policy}
-                    onChange={(e) => setPolicy(e.target.checked)}
+                    checked={eventUnknown}
+                    onChange={(e) => {
+                      setEventUnknown(e.target.checked);
+                      if (e.target.checked) setEventDate("");
+                      clearField("event_date");
+                    }}
                   />
-                  <span>
-                    Saya menyetujui <a href="#kebijakan">kebijakan reservasi</a>{" "}
-                    dan penggunaan data untuk mengelola appointment.
-                  </span>
+                  <span>Saya belum memiliki tanggal acara pasti</span>
                 </label>
-                {fieldErrors.policy && (
-                  <p className="field-error" id="policy-error" role="alert">
-                    {fieldErrors.policy}
-                  </p>
-                )}
-                <label className="consent">
+                <label className="field">
+                  Tanggal Acara
                   <input
-                    required
-                    type="checkbox"
-                    name="reminder"
-                    aria-invalid={!!fieldErrors.reminder}
-                    aria-describedby={
-                      fieldErrors.reminder ? "reminder-error" : undefined
-                    }
-                    checked={reminder}
-                    onChange={(e) => setReminder(e.target.checked)}
+                    type="date"
+                    required={!eventUnknown}
+                    disabled={eventUnknown}
+                    min={date}
+                    name="event_date"
+                    aria-label="Tanggal Acara"
+                    value={eventDate}
+                    aria-invalid={!!fieldErrors.event_date}
+                    aria-describedby="event_date-error"
+                    onChange={(e) => {
+                      setEventDate(e.target.value);
+                      clearField("event_date");
+                    }}
+                    onBlur={() => validateField("event_date")}
                   />
-                  <span>
-                    Saya bersedia menerima pengingat appointment melalui
-                    WhatsApp.
-                  </span>
+                  {fieldError("event_date")}
                 </label>
-                {fieldErrors.reminder && (
-                  <p className="field-error" id="reminder-error" role="alert">
-                    {fieldErrors.reminder}
-                  </p>
-                )}
                 <button className="primary" type="submit">
-                  Periksa reservasi →
+                  Baca syarat &amp; persetujuan →
                 </button>
                 <button
                   className="back"
@@ -426,34 +505,53 @@ export default function ReservationForm({ today }: { today: string }) {
             {step === 3 && (
               <>
                 <h2 ref={title} tabIndex={-1} className="section-title">
-                  Konfirmasi reservasi
+                  Syarat dan Ketentuan Free Fitting
                 </h2>
+                <div className="terms-notice">
+                  <p>{TERMS_NOTICE}</p>
+                </div>
+                <ol className="visit-terms">
+                  {TERMS.map((term) => (
+                    <li key={term}>{term}</li>
+                  ))}
+                </ol>
+                <h3 className="field-title">Informasi terkait stok kebaya</h3>
+                <p className="small terms-copy">{STOCK_NOTE}</p>
+                <p className="small terms-copy">{TERMS_CLOSING}</p>
+                <h3 className="field-title">Ringkasan reservasi</h3>
+                <Summary customer={customer} date={date} slot={slot} />
                 <p className="small muted">
-                  Periksa kembali sebelum menyimpan reservasi.
+                  Pengingat WhatsApp dijadwalkan 2 jam sebelum kunjungan. Jika
+                  reservasi dibuat kurang dari 2 jam sebelumnya, pengingat
+                  diproses pada jadwal pengiriman berikutnya.
                 </p>
-                <div className="summary-row">
-                  <span>Nama</span>
-                  <p>{name}</p>
-                </div>
-                <div className="summary-row">
-                  <span>WhatsApp</span>
-                  <p>+{phone}</p>
-                </div>
-                <div className="summary-row">
-                  <span>Instagram</span>
-                  <p>{instagram || "Tidak diisi"}</p>
-                </div>
-                <div className="summary-row">
-                  <span>Appointment</span>
-                  <p>
-                    {longDate(date)} · {slot.replace(":", ".")} WIB
-                  </p>
-                </div>
-                <p className="small muted">
-                  Jadwal akan tersimpan setelah reservasi berhasil. Pengingat
-                  WhatsApp dijadwalkan sekitar 2 jam sebelum kunjungan.
-                </p>
-                <button className="primary" disabled={busy} onClick={submit}>
+                {CONSENTS.map(([key, label]) => (
+                  <div key={key}>
+                    <label className="consent">
+                      <input
+                        type="checkbox"
+                        required
+                        disabled={busy || attempted}
+                        checked={consents[key]}
+                        aria-invalid={!!fieldErrors[key]}
+                        onChange={(e) => {
+                          setConsents((c) => ({
+                            ...c,
+                            [key]: e.target.checked,
+                          }));
+                          clearField(key);
+                        }}
+                      />
+                      <span>{label}</span>
+                    </label>
+                    {fieldError(key)}
+                  </div>
+                ))}
+                <button
+                  className="primary"
+                  disabled={!canSubmit}
+                  onClick={submit}
+                >
                   {busy ? "Menyimpan reservasi…" : "Konfirmasi reservasi →"}
                 </button>
                 {!attempted && (
@@ -467,8 +565,8 @@ export default function ReservationForm({ today }: { today: string }) {
                 )}
               </>
             )}
-            {error && step !== 2 && (
-              <p role="alert" className="error">
+            {error && (
+              <p className="error" role="alert">
                 {error}
               </p>
             )}
@@ -476,16 +574,12 @@ export default function ReservationForm({ today }: { today: string }) {
         )}
       </section>
       <aside aria-label="Informasi kunjungan">
-        <div className="note" id="kebijakan">
+        <div className="note">
           <h3>Sebelum berkunjung</h3>
           <p>
-            Datang sesuai jadwal yang dipilih. Jika rencana berubah, hubungi tim
-            butik untuk pembatalan. Satu slot tersedia untuk satu reservasi.
-          </p>
-          <p>
-            Nama dan WhatsApp hanya digunakan untuk mengelola reservasi serta
-            pengingat kunjungan. Reservasi kurang dari 2 jam sebelum jadwal
-            menerima pengingat pada proses pengiriman berikutnya.
+            Data yang Kakak berikan digunakan untuk mengelola appointment dan
+            pengingat WhatsApp. Jika rencana berubah, hubungi tim butik untuk
+            pembatalan.
           </p>
         </div>
       </aside>
