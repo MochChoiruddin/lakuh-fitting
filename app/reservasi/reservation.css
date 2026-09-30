@@ -538,6 +538,8 @@
 }
 .reservation-page .terms-notice p {
   margin: 0;
+  text-align: justify;
+  text-align-last: start;
 }
 .reservation-page .visit-terms {
   list-style: decimal;
