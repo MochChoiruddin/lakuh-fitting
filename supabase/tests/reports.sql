@@ -5,21 +5,27 @@ create function pg_temp.reject(statement text, expected text) returns void langu
 create temp table fixture(admin_id uuid, rid uuid, tag text);
 insert into fixture values(gen_random_uuid(),gen_random_uuid(),'Report Test '||gen_random_uuid()::text);
 select pg_temp.assert(not exists(select 1 from public.reservations where appointment_at >= '1901-01-01T00:00:00+07:00' and appointment_at < '1901-02-01T00:00:00+07:00'),'fixture month unoccupied');
-insert into public.reservations(id,idempotency_key,request_payload,name,phone,appointment_at,status)
-select rid,gen_random_uuid(),'{}',tag,'6281234567890','1901-01-01T00:00:00+07:00','pending' from fixture;
+insert into public.reservations(id,idempotency_key,request_payload,name,phone,appointment_at,status,weight_kg,height_cm)
+select rid,gen_random_uuid(),'{}',tag,'6281234567890','1901-01-01T00:00:00+07:00','pending',50,160 from fixture;
 insert into public.reminder_jobs(reservation_id,due_at,next_attempt_at) select rid,'1900-12-31T22:00:00+07:00',now()+interval '1 day' from fixture;
 insert into auth.users(id,email) select admin_id,admin_id::text||'@example.invalid' from fixture;
 insert into public.admins(user_id) select admin_id from fixture;
 grant select on fixture to authenticated;
 set local role authenticated;
 select pg_temp.reject('select public.reservation_report(''1901-01-01'',''1901-01-31'',null)','FORBIDDEN');
+select pg_temp.reject(format('select public.open_manual_reminder(%L)',rid),'FORBIDDEN') from fixture;
 reset role;
 select set_config('request.jwt.claim.sub',(select admin_id::text from fixture),true);
 set local role authenticated;
 select pg_temp.reject(format('select public.change_status(%L,''completed'')',rid),'INVALID_TRANSITION') from fixture;
+select pg_temp.assert(not has_function_privilege('anon','public.open_manual_reminder(uuid)','execute'),'manual RPC anon denied');
+select pg_temp.assert((public.open_manual_reminder(rid)->>'status')='pending','manual reminder opens for pending') from fixture;
+select pg_temp.assert((select count(*)=1 from public.reservation_audit where reservation_id=(select rid from fixture) and event_type='reminder_opened_by_admin' and old_status='pending' and new_status='pending' and actor_id=(select admin_id from fixture)),'manual audit opened only');
+select pg_temp.assert((select status='scheduled' and attempt_count=0 and sent_at is null from public.reminder_jobs where reservation_id=(select rid from fixture)),'manual does not send or mutate job');
 select public.change_status(rid,'confirmed') from fixture;
 select pg_temp.reject(format('select public.change_status(%L,''no_show'')',rid),'INVALID_TRANSITION') from fixture;
 select public.change_status(rid,'completed') from fixture;
+select pg_temp.reject(format('select public.open_manual_reminder(%L)',rid),'INVALID_REMINDER') from fixture;
 select pg_temp.assert((select status='completed' from public.reservations where id=(select rid from fixture)),'confirmed to completed');
 select pg_temp.assert((select status='cancelled' from public.reminder_jobs where reservation_id=(select rid from fixture)),'remaining reminder cancelled');
 select pg_temp.assert((select count(*)=1 from public.reminder_jobs where reservation_id=(select rid from fixture)),'no new reminder');
@@ -32,6 +38,7 @@ select gen_random_uuid(),'{}',f.tag,'6281234567890','1901-01-01T00:00:00+07:00':
   (array['pending','confirmed','completed','cancelled'])[1+(n%4)] from fixture f cross join generate_series(1,1204) n;
 set local role authenticated;
 select pg_temp.assert((public.reservation_report('1901-01-01','1901-01-31',null)->'counts'->>'total')::int=1205,'all rows above 100 and 1000');
+select pg_temp.assert((public.reservation_report('1901-01-01','1901-01-31',null)->'rows'->0->>'weight_kg')::numeric=50 and (public.reservation_report('1901-01-01','1901-01-31',null)->'rows'->0->>'height_cm')::numeric=160,'report returns new measurements');
 select pg_temp.assert(jsonb_array_length(public.reservation_report('1901-01-01','1901-01-31',null)->'rows')=1205,'no row cap');
 select pg_temp.assert((public.reservation_report('1901-01-01','1901-01-01',null)->'counts'->>'total')::int=1205,'inclusive Jakarta date, not UTC date');
 select pg_temp.assert((public.reservation_report('1900-12-31','1900-12-31',null)->'counts'->>'total')::int=0,'exclude previous Jakarta day');

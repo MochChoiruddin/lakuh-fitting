@@ -45,7 +45,8 @@ export async function reportWorkbook(
     ["Jam kunjungan", 19],
     ["Nama customer", 35],
     ["Nomor WhatsApp", 24],
-    ["Lingkar dada (cm)", 20],
+    ["Berat Badan (kg)", 20],
+    ["Tinggi Badan (cm)", 20],
     ["Tanggal acara", 38],
     ["Status reservasi", 20],
     ["Status reminder", 20],
@@ -65,7 +66,8 @@ export async function reportWorkbook(
       time(row.appointment_at),
       String(row.name),
       String(row.phone),
-      row.bust_circumference_cm,
+      row.weight_kg,
+      row.height_cm,
       row.event_date_unknown
         ? "Belum memiliki tanggal acara pasti"
         : row.event_date

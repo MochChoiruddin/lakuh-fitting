@@ -21,7 +21,8 @@ Nama: ${receipt.name}
 Nomor WhatsApp: ${receipt.phone}
 Tanggal kunjungan: ${longDate(jakartaDate(appointment))}
 Jam kunjungan: ${time} WIB
-Lingkar dada: ${receipt.bust_circumference_cm} cm
+Berat Badan: ${receipt.weight_kg} kg
+Tinggi Badan: ${receipt.height_cm} cm
 Tanggal acara: ${event}
 Kode reservasi: ${receipt.reference}
 

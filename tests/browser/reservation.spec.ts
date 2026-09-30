@@ -33,7 +33,7 @@ for (const unknown of [false, true])
       }),
     ).toBeVisible();
     await expect(page.locator(".date-strip")).toHaveCount(0);
-    await expect(page.locator(".slots button")).toHaveCount(10);
+    await expect(page.locator(".slots button")).toHaveCount(5);
     await enterDetails(page, unknown);
     const event = page.getByLabel("Tanggal Acara", { exact: true });
     if (unknown) {
@@ -41,11 +41,11 @@ for (const unknown of [false, true])
       await expect(event).toHaveValue("");
     }
     await expect(
-      page.getByLabel("Lingkar Dada (cm)", { exact: true }),
-    ).not.toHaveAttribute("min");
+      page.getByLabel("Berat Badan (kg)", { exact: true }),
+    ).toHaveAttribute("min", "20");
     await expect(
-      page.getByLabel("Lingkar Dada (cm)", { exact: true }),
-    ).not.toHaveAttribute("max");
+      page.getByLabel("Berat Badan (kg)", { exact: true }),
+    ).toHaveAttribute("max", "300");
     await termsStep(page);
     const submit = page.getByRole("button", { name: "Konfirmasi reservasi" });
     for (const [, label] of CONSENTS) {
@@ -56,22 +56,25 @@ for (const unknown of [false, true])
     await submit.click();
     await expect(page.locator(".reference")).toContainText("LK-TEST-RECEIPT");
     expect(payload.phone).toBe("6281234567890");
-    expect(payload.bust_circumference_cm).toBe(92.5);
+    expect(payload.weight_kg).toBe(50);
+    expect(payload.height_cm).toBe(160);
+    expect(payload).not.toHaveProperty("bust_circumference_cm");
     expect(payload.event_date_unknown).toBe(unknown);
     expect(payload.event_date).toBe(unknown ? null : "2099-12-01");
     expect(payload.terms_version).toBe(TERMS_VERSION);
     for (const [key] of CONSENTS) expect(payload[key]).toBe(true);
-    await expect(page.locator(".receipt")).toContainText("92.5 cm");
+    await expect(page.locator(".receipt")).toContainText("50 kg");
+    await expect(page.locator(".receipt")).toContainText("160 cm");
     await expect(page.locator(".receipt")).toContainText("Kak Ayu");
     await noOverflow(page);
   });
 test("field errors and exclusive event date choice", async ({ page }) => {
   await mockAvailability(page);
   await page.goto("/reservasi");
-  await page.getByRole("button", { name: "20.00", exact: true }).click();
+  await page.getByRole("button", { name: "15.00", exact: true }).click();
   await page.getByRole("button", { name: "Lanjutkan" }).click();
   await page.getByRole("button", { name: "Baca syarat" }).click();
-  for (const id of ["name", "phone", "bust_circumference_cm", "event_date"])
+  for (const id of ["name", "phone", "weight_kg", "height_cm", "event_date"])
     await expect(page.locator(`#${id}-error`)).toBeVisible();
   await page.getByLabel("Tanggal Acara", { exact: true }).fill("2000-01-01");
   await page.getByRole("button", { name: "Baca syarat" }).click();
@@ -110,7 +113,7 @@ test("API failure/malformed payload are unknown availability, retry restores slo
   await mockAvailability(page);
   await page.getByRole("button", { name: "Muat ulang jadwal" }).click();
   await expect(
-    page.getByRole("button", { name: "20.00", exact: true }),
+    page.getByRole("button", { name: "15.00", exact: true }),
   ).toBeEnabled();
 });
 test("admin and cron remain protected", async ({ page, request }) => {
@@ -119,5 +122,13 @@ test("admin and cron remain protected", async ({ page, request }) => {
     page.getByRole("heading", { name: "Masuk ke Lakuh" }),
   ).toBeVisible();
   expect((await request.get("/api/admin/reservations")).status()).toBe(401);
+  expect(
+    (
+      await request.post("/api/admin/reminder", {
+        headers: { Origin: "http://localhost:3000" },
+        data: { id: "11111111-1111-4111-8111-111111111111" },
+      })
+    ).status(),
+  ).toBe(401);
   expect((await request.get("/api/cron/reminders")).status()).toBe(401);
 });

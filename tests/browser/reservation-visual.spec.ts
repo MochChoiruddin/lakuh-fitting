@@ -92,6 +92,11 @@ for (const width of [360, 390, 430])
         .evaluate((el) => getComputedStyle(el).backgroundColor),
     ).toBe("rgb(244, 229, 181)");
     await expect(page.locator(".visit-terms li")).toHaveCount(10);
+    const termsStyle = await page.locator(".visit-terms").evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { size: style.fontSize, align: style.textAlign };
+    });
+    expect(termsStyle).toEqual({ size: "15px", align: "justify" });
     for (const term of TERMS)
       await expect(page.getByText(term, { exact: true })).toBeVisible();
     await expect(page.getByText(STOCK_NOTE, { exact: true })).toBeVisible();
@@ -151,7 +156,7 @@ test("loading and full day stay distinct", async ({ page }) => {
       "Jadwal hari ini sudah penuh atau melewati batas reservasi.",
     ),
   ).toBeVisible();
-  await expect(page.locator(".slots button:disabled")).toHaveCount(10);
+  await expect(page.locator(".slots button:disabled")).toHaveCount(5);
 });
 test("desktop stays centered", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });

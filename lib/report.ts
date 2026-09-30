@@ -77,7 +77,8 @@ export type ReportRow = {
   appointment_at: string;
   name: string;
   phone: string;
-  bust_circumference_cm: number | null;
+  weight_kg: number | null;
+  height_cm: number | null;
   event_date: string | null;
   event_date_unknown: boolean | null;
   status: string;

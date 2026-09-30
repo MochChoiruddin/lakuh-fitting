@@ -116,7 +116,8 @@ try {
     reference: `LK-${randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`,
     name: i < 4 ? ["=SUM(1,1)", "+SUM(1,1)", "-1+2", "@SUM(1,1)"][i] : tag,
     phone: "6281234567890",
-    bust_circumference_cm: 90.5,
+    weight_kg: 90.5,
+    height_cm: 160,
     event_plan: tag,
     event_date_unknown: true,
     appointment_at: new Date(
@@ -127,13 +128,11 @@ try {
   for (let i = 0; i < rows.length; i += 250)
     checked(await service.from("reservations").insert(rows.slice(i, i + 250)));
   checked(
-    await service
-      .from("reminder_jobs")
-      .insert({
-        reservation_id: ids[1],
-        due_at: "1901-12-31T15:01:00Z",
-        next_attempt_at: "2100-01-01T00:00:00Z",
-      }),
+    await service.from("reminder_jobs").insert({
+      reservation_id: ids[1],
+      due_at: "1901-12-31T15:01:00Z",
+      next_attempt_at: "2100-01-01T00:00:00Z",
+    }),
   );
   browser = await chromium.launch();
   const context = await browser.newContext({
@@ -188,6 +187,51 @@ try {
     ).status,
     "confirmed",
   );
+  const reminderBefore = checked(
+    await service
+      .from("reminder_jobs")
+      .select("status,attempt_count,sent_at")
+      .eq("reservation_id", ids[1])
+      .single(),
+  );
+  await context.route("https://wa.me/**", (route) =>
+    route.fulfill({ contentType: "text/html", body: "Intercepted in test" }),
+  );
+  const popupPromise = page.waitForEvent("popup");
+  await card
+    .getByRole("button", { name: "Kirim Reminder WhatsApp", exact: true })
+    .click();
+  const popup = await popupPromise;
+  await popup.waitForURL("https://wa.me/**");
+  const target = new URL(popup.url());
+  assert.equal(target.pathname, "/6281234567890");
+  const manualTime = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(rows[1].appointment_at));
+  const manualMessage = `Halo Kak, kami ingin mengingatkan bahwa Kakak memiliki jadwal appointment di butik kami pada pukul ${manualTime} WIB. Apakah Kakak berkenan hadir sesuai jadwal tersebut? Mohon konfirmasinya ya, Kak. Terima kasih 🤍`;
+  assert.equal(target.href, `https://wa.me/6281234567890?text=${encodeURIComponent(manualMessage)}`);
+  await popup.close();
+  const manualAudit = checked(
+    await service
+      .from("reservation_audit")
+      .select("event_type,old_status,new_status,actor_id")
+      .eq("reservation_id", ids[1])
+      .eq("event_type", "reminder_opened_by_admin"),
+  );
+  assert.equal(manualAudit.length, 1);
+  assert.equal(manualAudit[0].old_status, manualAudit[0].new_status);
+  assert.equal(manualAudit[0].actor_id, user.id);
+  assert.deepEqual(
+    checked(
+      await service
+        .from("reminder_jobs")
+        .select("status,attempt_count,sent_at")
+        .eq("reservation_id", ids[1])
+        .single(),
+    ),
+    reminderBefore,
+  );
+  pass(
+    "manual reminder: real UI/API audit opened only; WhatsApp navigation intercepted; status/job unchanged",
+  );
   const before = Date.now();
   page.once("dialog", (dialog) => dialog.accept());
   const response = page.waitForResponse(
@@ -213,7 +257,8 @@ try {
     await service
       .from("reservation_audit")
       .select("actor_id,old_status,new_status,changed_at")
-      .eq("reservation_id", ids[1]),
+      .eq("reservation_id", ids[1])
+      .eq("event_type", "status_changed"),
   );
   assert.equal(audit.length, 1);
   assert.equal(audit[0].actor_id, user.id);
@@ -275,7 +320,9 @@ try {
   );
   const sheet = workbook.getWorksheet("Reservasi");
   assert.equal(sheet.rowCount, 1206);
-  assert.equal(sheet.columnCount, 13);
+  assert.equal(sheet.columnCount, 14);
+  assert.equal(sheet.getCell("G2").value, 90.5);
+  assert.equal(sheet.getCell("H2").value, 160);
   assert.equal(sheet.getRow(1).font.bold, true);
   assert.equal(sheet.views[0].ySplit, 1);
   assert.ok(sheet.autoFilter);
@@ -297,7 +344,7 @@ try {
     const book = new ExcelJS.Workbook();
     await book.xlsx.load(await r.body());
     book.getWorksheet("Reservasi").eachRow((row, number) => {
-      if (number > 1) assert.equal(row.getCell(9).value, status);
+      if (number > 1) assert.equal(row.getCell(10).value, status);
     });
   }
   pass(
@@ -316,7 +363,45 @@ try {
   await page.unroute("**/api/admin/reports/export?*");
   checked(await service.from("admins").delete().eq("user_id", user.id));
   assert.equal((await context.request.get(base + path)).status(), 403);
+  assert.equal(
+    (
+      await context.request.post(`${base}/api/admin/reminder`, {
+        headers: { Origin: base },
+        data: { id: ids[1] },
+      })
+    ).status(),
+    403,
+  );
   pass("export failure message and valid authenticated non-admin session 403");
+  // Ordinary Data API sessions; membership was revoked only for this run's fixture user.
+  const unprivileged = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const anonymous = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const login = checked(await unprivileged.auth.signInWithPassword({ email, password }));
+  secrets.push(login.session.access_token, login.session.refresh_token);
+  for (const client of [anonymous, unprivileged]) {
+    for (const [table, column, id, value] of [
+      ["reservations", "id", ids[1], { status: "pending" }],
+      ["reminder_jobs", "reservation_id", ids[1], { status: "failed" }],
+      ["reservation_audit", "reservation_id", ids[1], { new_status: "pending" }],
+      ["admins", "user_id", user.id, { user_id: user.id }],
+      ["rate_limits", "key", salt, { hits: 2 }],
+    ]) {
+      const read = await client.from(table).select(column).eq(column, id);
+      assert.ok(read.error || read.data.length === 0);
+      for (const result of [
+        await client.from(table).insert(value),
+        await client.from(table).update(value).eq(column, id),
+        await client.from(table).delete().eq(column, id),
+      ]) assert.equal(result.error?.code, "42501");
+    }
+    for (const [fn, args] of [
+      ["open_manual_reminder", { p_id: ids[1] }],
+      ["change_status", { p_id: ids[1], p_status: "confirmed" }],
+      ["reservation_report", { p_start: "1902-01-01", p_end: "1902-01-31", p_status: null }],
+      ["book_free_visit", { p_input: {} }],
+    ]) assert.equal((await client.rpc(fn, args)).error?.code, "42501");
+  }
+  pass("Data API anon/non-admin: five private tables deny reads and direct INSERT/UPDATE/DELETE; admin/private RPCs denied");
 } catch {
   process.exitCode = 1;
   results.push({ check: stage, status: "FAIL" });

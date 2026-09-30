@@ -25,7 +25,8 @@ const data: ReportData = {
       "@SUM(1,1)",
     ][i % 4],
     phone: "6281234567890",
-    bust_circumference_cm: 90.5,
+    weight_kg: 90.5,
+    height_cm: 160,
     event_date: null,
     event_date_unknown: true,
     appointment_at: "2026-09-27T17:00:00Z",
@@ -111,7 +112,11 @@ describe("real XLSX and protected HTTP handlers", () => {
     ]);
     const sheet = workbook.getWorksheet("Reservasi")!;
     expect(sheet.rowCount).toBe(1206);
-    expect(sheet.columnCount).toBe(13);
+    expect(sheet.columnCount).toBe(14);
+    expect(sheet.getCell("G1").text).toBe("Berat Badan (kg)");
+    expect(sheet.getCell("H1").text).toBe("Tinggi Badan (cm)");
+    expect(sheet.getCell("G2").value).toBe(90.5);
+    expect(sheet.getCell("H2").value).toBe(160);
     expect(sheet.getRow(1).font.bold).toBe(true);
     expect(sheet.views[0]).toMatchObject({ state: "frozen", ySplit: 1 });
     expect(sheet.autoFilter).toBeTruthy();
@@ -119,7 +124,7 @@ describe("real XLSX and protected HTTP handlers", () => {
       expect(sheet.getCell(i + 2, 5).type).toBe(ExcelJS.ValueType.String);
       expect(sheet.getCell(i + 2, 5).value).toBe(data.rows[i].name);
       expect(sheet.getCell(i + 2, 5).formula).toBeUndefined();
-      expect(sheet.getCell(i + 2, 9).value).toBe(data.rows[i].status);
+      expect(sheet.getCell(i + 2, 10).value).toBe(data.rows[i].status);
     }
     expect(sheet.getCell("C2").text).toContain("28 September 2026");
     expect(sheet.getCell("D2").text).toBe("00.00 WIB");

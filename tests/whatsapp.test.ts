@@ -22,7 +22,7 @@ describe("official provider safety", () => {
   });
   it.each([
     ["04:00", "11.00"],
-    ["13:00", "20.00"],
+    ["08:00", "15.00"],
   ])("formats UTC %s as Jakarta %s", async (utc, local) => {
     configured();
     const fetcher = vi
