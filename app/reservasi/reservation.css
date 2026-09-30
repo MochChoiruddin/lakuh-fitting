@@ -542,8 +542,11 @@
 .reservation-page .visit-terms {
   list-style: decimal;
   padding-left: 24px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.85;
+  text-align: justify;
+  text-align-last: start;
+  overflow-wrap: break-word;
 }
 .reservation-page .visit-terms li {
   padding-left: 5px;

@@ -21,7 +21,7 @@ process.loadEnvFile(".env.local");
 process.env.PLAYWRIGHT_BROWSERS_PATH = "node_modules/.cache/ms-playwright";
 const { chromium } = await import("playwright");
 const base = "http://localhost:3100",
-  version = "free-visit-2026-09-v1";
+  version = "free-visit-2026-09-v2";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 assert.equal(url, "https://bwxtvtuttunedomahnds.supabase.co");
 assert.ok(
@@ -138,10 +138,19 @@ try {
     0,
   );
   const free = availability.slots.filter((s) => s.available);
-  assert.ok(
-    free.length,
-    "No real slot remains before today's cutoff; do not fake time",
-  );
+  if (!free.length) {
+    await page.locator('.slots[aria-busy="false"]').waitFor();
+    assert.equal(await page.locator(".slots button").count(), SLOTS.length);
+    assert.equal(await page.locator(".slots button:disabled").count(), SLOTS.length);
+    writeFileSync(`${out}/availability.json`, JSON.stringify({ date: today, status: response.status(), json: availability }, null, 2));
+    await page.screenshot({ path: `${out}/same-day-cutoff-390.png`, fullPage: true });
+    pass("real browser/API/RPC show exactly five slots; all disabled consistently with actual cutoff/occupancy");
+    const noMeta = await api("/api/cron/reminders", "GET", null, { Authorization: `Bearer ${process.env.CRON_SECRET}` });
+    assert.equal(noMeta.status, 503);
+    assert.equal(noMeta.data.processed, 0);
+    pass("authenticated no-Meta cron returns 503 processed=0 without worker claim");
+    throw Object.assign(new Error("No real slot remains before today's cutoff"), { blocked: true });
+  }
   await page.locator('.slots[aria-busy="false"]').waitFor();
   for (const { slot, available } of availability.slots) {
     const button = page.getByRole("button", {
@@ -179,7 +188,8 @@ try {
     await page
       .getByLabel("Nomor HP/WhatsApp", { exact: true })
       .fill("081234567890");
-    await page.getByLabel("Lingkar Dada (cm)", { exact: true }).fill("92.5");
+    await page.getByLabel("Berat Badan (kg)", { exact: true }).fill("50");
+    await page.getByLabel("Tinggi Badan (cm)", { exact: true }).fill("160");
     await page
       .getByLabel("Informasi Rencana Acara")
       .fill("Acara keluarga sintetis");
@@ -256,13 +266,15 @@ try {
       .locator(".reference")
       .filter({ hasText: receipt.reference })
       .waitFor();
-    assert.ok((await page.locator(".receipt").innerText()).includes("92.5 cm"));
+    assert.ok((await page.locator(".receipt").innerText()).includes("50 kg"));
     return receipt;
   }
   stage = "real UI booking persistence";
   await confirm();
   const first = (await ownRows())[0];
-  assert.equal(first.bust_circumference_cm, 92.5);
+  assert.equal(first.weight_kg, 50);
+  assert.equal(first.height_cm, 160);
+  assert.equal(first.bust_circumference_cm, null);
   assert.equal(first.event_date, eventDate);
   assert.equal(first.event_date_unknown, false);
   assert.equal(first.phone, "6281234567890");
@@ -295,7 +307,8 @@ try {
     (
       await api("/api/reservations", "POST", {
         ...captured,
-        bust_circumference_cm: 93,
+        weight_kg: 93,
+        height_cm: 160,
       })
     ).status,
     409,
@@ -361,7 +374,7 @@ try {
   await card.waitFor();
   const details = await card.innerText();
   for (const value of [
-    "92.5 cm",
+    "50 kg",
     eventDate,
     version,
     "Asia/Jakarta",
@@ -499,9 +512,10 @@ try {
   pass(
     "non-admin login 403; revoked authenticated session GET/PATCH 403 and RLS denial",
   );
-} catch {
-  results.push({ check: stage, status: "FAIL" });
-  console.error(`FAIL: ${stage}; sensitive errors suppressed`);
+} catch (error) {
+  const status = error?.blocked ? "BLOCKED" : "FAIL";
+  results.push({ check: stage, status });
+  console.error(`${status}: ${stage}; ${error?.blocked ? "no same-day slot remains before cutoff; booking/race/replay not run" : "sensitive errors suppressed"}`);
   process.exitCode = 1;
 } finally {
   try {

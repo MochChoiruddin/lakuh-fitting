@@ -2,13 +2,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { STATUSES, type Status } from "@/lib/booking";
 import Reports from "./reports";
+import ManualReminder from "./manual-reminder";
 type Reservation = {
   id: string;
   reference: string;
   name: string;
   instagram: string;
   phone: string;
-  bust_circumference_cm: number | null;
+  weight_kg: number | null;
+  height_cm: number | null;
   event_plan: string | null;
   event_date: string | null;
   event_date_unknown: boolean | null;
@@ -211,10 +213,15 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
                 {r.instagram && ` · @${r.instagram}`}
               </p>
               <p className="small muted">
-                Lingkar dada:{" "}
-                {r.bust_circumference_cm === null
+                Berat Badan:{" "}
+                {r.weight_kg === null
                   ? "Data lama — belum dicatat"
-                  : `${r.bust_circumference_cm} cm`}
+                  : `${r.weight_kg} kg`}
+                <br />
+                Tinggi Badan:{" "}
+                {r.height_cm === null
+                  ? "Data lama — belum dicatat"
+                  : `${r.height_cm} cm`}
                 <br />
                 Rencana acara: {r.event_plan || "Tidak diisi"}
                 <br />
@@ -276,6 +283,7 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
                   </button>
                 ))}
               </div>
+              <ManualReminder reservation={r} />
             </article>
           ))}
         </>

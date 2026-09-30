@@ -1,12 +1,12 @@
-export const TERMS_VERSION = "free-visit-2026-09-v1";
+export const TERMS_VERSION = "free-visit-2026-09-v2";
 export const VISIT_NOTE =
-  "Free fitting bersifat dadakan (go-show) dan appointment hanya dapat dilakukan pada hari H. Apabila kuota reservasi hari ini telah terpenuhi, dapat mencoba kembali esok hari melalui tautan ini.";
+  "Free Visit bersifat dadakan (go-show) dan appointment hanya dapat dilakukan pada hari H. Apabila kuota reservasi hari ini telah terpenuhi, dapat mencoba kembali esok hari melalui tautan ini.";
 export const TERMS_NOTICE =
-  "Halo Kak! Sebelum melakukan reservasi, mohon pahami syarat dan ketentuan free fitting terlampir, ya. Untuk kenyamanan bersama, kami berhak membatalkan atau menolak kedatangan jika tidak sesuai dengan aturan yang disepakati.";
+  "Halo Kak! Sebelum melakukan reservasi, mohon pahami syarat dan ketentuan Free Visit terlampir, ya. Untuk kenyamanan bersama, kami berhak membatalkan atau menolak kedatangan jika tidak sesuai dengan aturan yang disepakati.";
 export const TERMS = [
   "Appointment ini berlaku untuk 1 orang dalam 1 kedatangan.",
   "Customer WAJIB memakai inner atau manset berlengan (yang menutupi area ketiak) demi menjaga kebersihan kebaya.",
-  "Dimohon datang ON TIME. Durasi free fitting max. 45 menit. Keterlambatan kedatangan akan memotong durasi fitting.",
+  "Dimohon datang ON TIME. Durasi Free Visit max. 45 menit. Keterlambatan kedatangan akan memotong durasi fitting.",
   "Dipersilakan mengajak pendamping max. 2 orang.",
   "Tidak diperkenankan membawa makanan atau minuman ke dalam butik.",
   "Wajib melakukan konfirmasi kedatangan melalui WhatsApp reminder yang kami kirimkan.",

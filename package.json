@@ -12,6 +12,7 @@
     "test:browser": "playwright test",
     "test:db": "supabase db query --linked --file supabase/tests/fitting.sql && supabase db query --linked --file supabase/tests/reports.sql",
     "db:push": "supabase db push --linked",
+    "test:db:revision": "supabase db query --linked --file supabase/tests/client-revision.sql && supabase db query --linked --file supabase/tests/reports.sql",
     "test:concurrency": "node scripts/test-concurrency.mjs",
     "test:secrets": "node scripts/secret-scan.mjs",
     "test:reports:live": "node scripts/report-acceptance.mjs"

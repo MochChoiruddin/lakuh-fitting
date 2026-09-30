@@ -1,6 +1,20 @@
 import { SLOTS, SCHEDULE } from "./schedule.mjs";
 import { CONSENTS, TERMS_VERSION, type ConsentKey } from "./free-visit";
 export { SLOTS } from "./schedule.mjs";
+export function validAvailability(
+  value: unknown,
+): value is { slot: string; available: boolean }[] {
+  return (
+    Array.isArray(value) &&
+    value.length === SLOTS.length &&
+    SLOTS.every(
+      (slot) =>
+        value.filter(
+          (item) => item?.slot === slot && typeof item.available === "boolean",
+        ).length === 1,
+    )
+  );
+}
 export const STATUSES = [
   "pending",
   "confirmed",
@@ -42,7 +56,8 @@ export function normalizePhone(value: string) {
 export type CustomerInput = {
   name: string;
   phone: string;
-  bust_circumference_cm: number;
+  weight_kg: number;
+  height_cm: number;
   event_plan: string;
   event_date: string | null;
   event_date_unknown: boolean;
@@ -84,11 +99,19 @@ export function customerErrors(
   } catch (e) {
     errors.phone = (e as Error).message;
   }
-  if (
-    typeof raw.bust_circumference_cm !== "number" ||
-    !Number.isFinite(raw.bust_circumference_cm)
-  )
-    errors.bust_circumference_cm = "Isi lingkar dada dalam angka (cm).";
+  for (const [key, label, min, max, unit] of [
+    ["weight_kg", "Berat badan", 20, 300, "kg"],
+    ["height_cm", "Tinggi badan", 80, 250, "cm"],
+  ] as const) {
+    const value = raw[key];
+    if (
+      typeof value !== "number" ||
+      !Number.isFinite(value) ||
+      value < min ||
+      value > max
+    )
+      errors[key] = `${label} wajib angka antara ${min}–${max} ${unit}.`;
+  }
   if (
     typeof raw.event_plan !== "string" ||
     raw.event_plan.length > 2000 ||
@@ -134,7 +157,8 @@ export function validateBooking(raw: unknown): BookingInput {
   return {
     name: b.name.trim(),
     phone: normalizePhone(b.phone),
-    bust_circumference_cm: b.bust_circumference_cm,
+    weight_kg: b.weight_kg,
+    height_cm: b.height_cm,
     event_plan: b.event_plan.trim(),
     event_date: b.event_date,
     event_date_unknown: b.event_date_unknown,

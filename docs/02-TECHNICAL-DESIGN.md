@@ -2,7 +2,7 @@
 
 ## Arsitektur
 
-Next.js App Router/TypeScript/Tailwind dan Supabase PostgreSQL/Auth. Browser → API localhost → RPC server-only. .env.local tetap ignored; service role/Meta/cron secret tidak masuk client. Panduan Next lokal dibaca sebelum perubahan. Konfigurasi sepuluh jam tetap lib/fitting-schedule.json melalui lib/schedule.mjs; fungsi dates kini hanya mengembalikan tanggal Jakarta hari ini.
+Next.js App Router/TypeScript/Tailwind dan Supabase PostgreSQL/Auth. Browser → API localhost → RPC server-only. .env.local tetap ignored; service role/Meta/cron secret tidak masuk client. Panduan Next lokal dibaca sebelum perubahan. Konfigurasi lima jam 11.00–15.00 tetap lib/fitting-schedule.json melalui lib/schedule.mjs; fungsi dates kini hanya mengembalikan tanggal Jakarta hari ini.
 
 ## Data dan migration
 
@@ -12,13 +12,13 @@ Migration tambahan **20260927000300_free_visit.sql**, diterapkan pada lakuh-fitt
 - consent_on_time, consent_whatsapp, consent_stock, consent_terms boolean.
 - terms_version text, consented_at timestamptz, timezone text.
 
-Kolom nullable untuk mempertahankan data lama tanpa memalsukan consent. CHECK constraint mewajibkan seluruh detail valid bila terms_version baru ada. Angka cm harus finite; tidak diberi rentang minimum/maksimum. event_date_unknown=true membutuhkan event_date=null; jika false, tanggal wajib dan tidak sebelum tanggal appointment di Jakarta. Admin menandai detail historis yang belum pernah dicatat.
+Kolom nullable untuk mempertahankan data lama tanpa memalsukan consent. CHECK constraint mewajibkan seluruh detail valid bila terms_version baru ada. Kolom lingkar dada hanya kompatibilitas historis; reservasi v2 memakai weight_kg dan height_cm dengan rentang terkontrol. event_date_unknown=true membutuhkan event_date=null; jika false, tanggal wajib dan tidak sebelum tanggal appointment di Jakarta. Admin menandai detail historis yang belum pernah dicatat.
 
 RPC **book_free_visit(p_input jsonb)** hanya dapat dieksekusi service_role. Semua hak execute RPC book_fitting lama dicabut, termasuk service_role, sehingga endpoint lama tidak bisa melewati persyaratan baru. Availability hanya mengaktifkan hari ini dan slot yang memenuhi cutoff serta belum terisi; tanggal lain ditolak API dan tidak tersedia di RPC.
 
 ## Atomisitas dan idempotensi
 
-RPC mengambil advisory transaction lock berdasarkan UUID key; payload baru mencakup data acara, lingkar dada, empat consent dan versi syarat. Replay payload sama mengembalikan receipt yang sama sebelum evaluasi ulang cutoff; payload berbeda ditolak. Unique partial index appointment tetap menjamin satu booking non-cancelled. Insert reservasi, audit dan satu reminder dilakukan dalam transaksi yang sama. Consent dan timestamp/timezone ditetapkan server, bukan jam browser.
+RPC mengambil advisory transaction lock berdasarkan UUID key; payload baru mencakup data acara, berat/tinggi, empat consent dan versi syarat. Replay payload sama mengembalikan receipt yang sama sebelum evaluasi ulang cutoff; payload berbeda ditolak. Unique partial index appointment tetap menjamin satu booking non-cancelled. Insert reservasi, audit dan satu reminder dilakukan dalam transaksi yang sama. Consent dan timestamp/timezone ditetapkan server, bukan jam browser.
 
 API memvalidasi nama, nomor Indonesia, angka finite, tanggal kalender nyata, pilihan known/unknown, boolean consent dan versi terms. Field errors dikembalikan dekat input terkait. Database memvalidasi ulang secara independen dan memutuskan apakah appointment masih hari ini/lolos cutoff. Body booking dibatasi 16 KiB agar cukup untuk 2.000 karakter Unicode acara; endpoint lain tetap 4 KiB. Free text acara dibatasi 2.000 karakter. Rate limit tetap berlaku. Rate booking tetap 15/10 menit, availability 180/10 menit dan login 10/10 menit; limit global butik berdasarkan salted key.
 
@@ -26,7 +26,7 @@ API memvalidasi nama, nomor Indonesia, angka finite, tanggal kalender nyata, pil
 
 lib/free-visit.ts menyimpan konten persis serta versi dan nama keempat consent. Form tiga tahap: waktu, data acara, syarat. Tidak ada pemilih tanggal kunjungan; perpindahan hari diperiksa secara berkala dengan Asia/Jakarta. Unknown event date langsung menghapus nilai date. Submit hanya aktif bila data lengkap dan empat consent true. Setelah hasil network tidak pasti, payload tidak dapat diedit dan key dipertahankan untuk retry aman.
 
-Receipt berasal dari hasil RPC dan berisi data utama termasuk lingkar dada dan tanggal/status acara. API admin hanya mengembalikan data setelah auth dan membership; list/detail kartu admin menampilkan field baru dan empat consent. Tombol WhatsApp receipt tetap terpisah dari provider reminder.
+Receipt berasal dari hasil RPC dan berisi data utama termasuk berat/tinggi dan tanggal/status acara. API admin hanya mengembalikan data setelah auth dan membership; list/detail kartu admin menampilkan field baru dan empat consent. Tombol WhatsApp receipt tetap terpisah dari provider reminder.
 
 ## Laporan dan XLSX
 
@@ -53,3 +53,15 @@ Worker reminder dan provider tidak diubah. due_at = appointment_at - 2 jam; next
 - scripts/report-acceptance.mjs: server production localhost:3101, session admin nyata, periode fixture historis yang diverifikasi kosong, 1.205 ID fixture eksplisit, transisi melalui UI/HTTP, audit, workbook lengkap, formula-as-text, endpoint authorization, screenshot mobile dan cleanup/readback. Tidak mengambil reminder global.
 
 Run live membutuhkan setidaknya satu slot hari ini yang masih terbuka sebelum cutoff. Jika tidak ada, tes harus gagal/blocked, tidak boleh memundurkan jam atau memalsukan availability. Hindari menjalankannya berulang dalam jendela rate limit. Seluruh fixture dihapus berdasarkan UUID sendiri, tanpa menghapus reservasi nyata. Tidak ada pesan dikirim, deployment atau scheduler diaktifkan.
+
+## Migration revisi pelanggan September
+
+`20260929000100_client_revision.sql` menambah `weight_kg numeric` (20–300), `height_cm numeric` (80–250), CHECK finite/range dan detail v2. `bust_circumference_cm` tetap nullable/deprecated untuk riwayat; v2 mewajibkan null pada kolom lama. `terms_version=free-visit-2026-09-v2` membutuhkan kedua ukuran, tanggal/acara/consent, WIB dan salah satu lima jam. Semua migration lama dipertahankan.
+
+Availability SQL menghasilkan 11–15; konfigurasi bersama aplikasi di `lib/fitting-schedule.json`. RPC booking memvalidasi ulang lima jam, hari ini, cutoff dan kedua ukuran; API menolak jam di luar konfigurasi. Replay tetap diperiksa sebelum cutoff, dan payload ukuran ikut perbandingan idempotensi. Data historis tidak dikonversi/diubah diam-diam. RPC laporan mengganti field ukuran aktif; Excel menjadi 14 kolom, tanpa lingkar dada.
+
+`POST /api/admin/reminder` memeriksa same-origin, session, membership admin dan UUID. RPC `open_manual_reminder(uuid)` mengunci hanya booking yang diminta, memeriksa pending/confirmed dan nomor, lalu menulis event `reminder_opened_by_admin` dengan actor/booking/time serta old_status=new_status. Hak execute hanya authenticated; fungsi tetap memeriksa is_admin. Anon/non-admin ditolak. Data nomor berasal dari database, bukan body customer. RPC tidak mengubah reminder job atau status reservasi.
+
+`lib/manual-reminder.ts` menormalisasi nomor dengan helper yang sama dan mengenkode pesan melalui encodeURIComponent. UI membuka tab kosong pada klik pengguna lalu memanggil endpoint; popup diblokir tidak memanggil audit, kegagalan API menutup popup dan menampilkan error. Keberhasilan mengarahkan tab ke wa.me. Audit merekam tindakan membuka tautan, bukan konfirmasi pengiriman/diterima; navigasi eksternal masih dapat gagal. Tidak ada secret atau provider Cloud API pada fitur manual.
+
+Langkah bootstrap aman ada di README. Migration revisi telah diterapkan setelah izin eksplisit pengguna; tujuh reservasi percobaan beserta child-nya dibersihkan secara transaksional. UID Auth terkonfirmasi lakuhattire@gmail.com ditambahkan ke admins melalui INSERT ON CONFLICT DO NOTHING, tanpa mengubah password/akun. Status faktual ada di laporan verifikasi.

@@ -22,8 +22,9 @@ for (const width of [360, 390, 430]) {
         phone: "628123456789012",
         reference,
         status: "pending",
-        appointment_at: "2099-11-30T13:00:00Z",
-        bust_circumference_cm: 97.5,
+        appointment_at: "2099-11-30T08:00:00Z",
+        weight_kg: 97.5,
+        height_cm: 160,
         event_date: unknown ? null : "2099-12-01",
         event_date_unknown: unknown,
         event_plan: "Acara keluarga",
@@ -64,7 +65,7 @@ for (const width of [360, 390, 430]) {
           month: "long",
           year: "numeric",
         }).format(new Date(`${value}T12:00:00+07:00`));
-      const expected = `Halo Kak Admin Lakuh Attire 🤍\n\nSaya sudah membuat reservasi Appointment Free Visit dengan detail berikut:\n\nNama: ${name}\nNomor WhatsApp: ${receipt.phone}\nTanggal kunjungan: ${date("2099-11-30")}\nJam kunjungan: 20.00 WIB\nLingkar dada: 97.5 cm\nTanggal acara: ${unknown ? "Belum memiliki tanggal acara pasti" : date("2099-12-01")}\nKode reservasi: ${reference}\n\nStatus: Menunggu konfirmasi\n\nMohon konfirmasi reservasi saya, ya. Terima kasih 🤍`;
+      const expected = `Halo Kak Admin Lakuh Attire 🤍\n\nSaya sudah membuat reservasi Appointment Free Visit dengan detail berikut:\n\nNama: ${name}\nNomor WhatsApp: ${receipt.phone}\nTanggal kunjungan: ${date("2099-11-30")}\nJam kunjungan: 15.00 WIB\nBerat Badan: 97.5 kg\nTinggi Badan: 160 cm\nTanggal acara: ${unknown ? "Belum memiliki tanggal acara pasti" : date("2099-12-01")}\nKode reservasi: ${reference}\n\nStatus: Menunggu konfirmasi\n\nMohon konfirmasi reservasi saya, ya. Terima kasih 🤍`;
       const href = await link.getAttribute("href");
       expect(href).toBe(
         `https://wa.me/6282231379003?text=${encodeURIComponent(expected)}`,
