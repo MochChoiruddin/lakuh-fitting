@@ -1,6 +1,6 @@
 import { service } from "@/lib/supabase";
 import { failure, json, rateLimit } from "@/lib/http";
-import { dates } from "@/lib/booking";
+import { dates, validAvailability } from "@/lib/booking";
 export async function GET(req: Request) {
   try {
     const date = new URL(req.url).searchParams.get("date") ?? "";
@@ -11,6 +11,7 @@ export async function GET(req: Request) {
       p_date: date,
     });
     if (error) throw error;
+    if (!validAvailability(data)) throw new Error("UNAVAILABLE");
     return json({ slots: data });
   } catch (e) {
     return failure(e);

@@ -137,7 +137,7 @@ export async function authorization({
             p_instagram: "",
             p_phone: first.phone,
             p_date: today,
-            p_slot: "20:00",
+            p_slot: "15:00",
             p_policy: true,
             p_reminder: true,
           })

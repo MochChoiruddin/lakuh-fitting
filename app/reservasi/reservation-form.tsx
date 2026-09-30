@@ -7,6 +7,7 @@ import {
   longDate,
   normalizePhone,
   SLOTS,
+  validAvailability,
   type BookingReceipt,
   type CustomerInput,
 } from "@/lib/booking";
@@ -43,7 +44,8 @@ function Summary({
         ["Kunjungan", `${longDate(date)} · ${slot.replace(":", ".")} WIB`],
         ["Nama", customer.name],
         ["WhatsApp", `+${customer.phone}`],
-        ["Lingkar dada", `${customer.bust_circumference_cm} cm`],
+        ["Berat Badan", `${customer.weight_kg} kg`],
+        ["Tinggi Badan", `${customer.height_cm} cm`],
         ["Rencana acara", customer.event_plan || "Tidak diisi"],
         [
           "Tanggal acara",
@@ -74,7 +76,8 @@ export default function ReservationForm({ today }: { today: string }) {
     [retry, setRetry] = useState(0);
   const [name, setName] = useState(""),
     [phone, setPhone] = useState(""),
-    [bust, setBust] = useState("");
+    [weight, setWeight] = useState(""),
+    [height, setHeight] = useState("");
   const [eventPlan, setEventPlan] = useState(""),
     [eventDate, setEventDate] = useState(""),
     [eventUnknown, setEventUnknown] = useState(false);
@@ -88,7 +91,8 @@ export default function ReservationForm({ today }: { today: string }) {
   const customer: CustomerInput = {
     name,
     phone,
-    bust_circumference_cm: bust.trim() === "" ? NaN : Number(bust),
+    weight_kg: weight.trim() === "" ? NaN : Number(weight),
+    height_cm: height.trim() === "" ? NaN : Number(height),
     event_plan: eventPlan,
     event_date: eventUnknown ? null : eventDate || null,
     event_date_unknown: eventUnknown,
@@ -121,18 +125,7 @@ export default function ReservationForm({ today }: { today: string }) {
     })
       .then(async (r) => {
         const data = await r.json();
-        if (
-          !r.ok ||
-          !Array.isArray(data.slots) ||
-          data.slots.length !== SLOTS.length ||
-          !SLOTS.every(
-            (slot) =>
-              data.slots.filter(
-                (item: Availability) =>
-                  item?.slot === slot && typeof item.available === "boolean",
-              ).length === 1,
-          )
-        )
+        if (!r.ok || !validAvailability(data.slots))
           throw new Error("UNAVAILABLE");
         if (controller.signal.aborted) return;
         setSlots(data.slots);
@@ -419,26 +412,49 @@ export default function ReservationForm({ today }: { today: string }) {
                   />
                   {fieldError("phone")}
                 </label>
-                <label className="field">
-                  Lingkar Dada (cm)
-                  <input
-                    required
-                    type="number"
-                    step="any"
-                    inputMode="decimal"
-                    name="bust_circumference_cm"
-                    aria-label="Lingkar Dada (cm)"
-                    value={bust}
-                    aria-invalid={!!fieldErrors.bust_circumference_cm}
-                    aria-describedby="bust_circumference_cm-error"
-                    onChange={(e) => {
-                      setBust(e.target.value);
-                      clearField("bust_circumference_cm");
-                    }}
-                    onBlur={() => validateField("bust_circumference_cm")}
-                  />
-                  {fieldError("bust_circumference_cm")}
-                </label>
+                {(
+                  [
+                    [
+                      "weight_kg",
+                      "Berat Badan (kg)",
+                      weight,
+                      setWeight,
+                      20,
+                      300,
+                    ],
+                    [
+                      "height_cm",
+                      "Tinggi Badan (cm)",
+                      height,
+                      setHeight,
+                      80,
+                      250,
+                    ],
+                  ] as const
+                ).map(([key, label, value, setter, min, max]) => (
+                  <label className="field" key={key}>
+                    {label}
+                    <input
+                      required
+                      type="number"
+                      step="any"
+                      inputMode="decimal"
+                      name={key}
+                      aria-label={label}
+                      min={min}
+                      max={max}
+                      value={value}
+                      aria-invalid={!!fieldErrors[key]}
+                      aria-describedby={`${key}-error`}
+                      onChange={(e) => {
+                        setter(e.target.value);
+                        clearField(key);
+                      }}
+                      onBlur={() => validateField(key)}
+                    />
+                    {fieldError(key)}
+                  </label>
+                ))}
                 <label className="field">
                   Informasi Rencana Acara{" "}
                   <span className="muted">(opsional)</span>
@@ -505,7 +521,7 @@ export default function ReservationForm({ today }: { today: string }) {
             {step === 3 && (
               <>
                 <h2 ref={title} tabIndex={-1} className="section-title">
-                  Syarat dan Ketentuan Free Fitting
+                  Syarat dan Ketentuan Free Visit
                 </h2>
                 <div className="terms-notice">
                   <p>{TERMS_NOTICE}</p>
