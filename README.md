@@ -47,7 +47,7 @@ Akun Auth terkonfirmasi `lakuhattire@gmail.com` sudah didaftarkan ke `public.adm
 
 `npm run test:reports:live` menguji admin/manual reminder/Excel dengan fixture eksplisit dan cleanup di finally. URL WhatsApp diintersep agar tidak mengirim pesan. Uji worker global hanya pada database isolated; jangan dijalankan di Supabase shared.
 
-Tes SQL revisi yang dapat dijalankan di luar jam booking: `npm run test:db:revision` (constraint/RLS/report, rollback). `npm run test:db` dan `npm run test:concurrency` tetap memerlukan slot hari ini sebelum cutoff. Setelah pukul 14.00 WIB, booking sukses/race harus dilaporkan BLOCKED dan diulang saat jadwal terbuka; jangan mengubah jam atau memalsukan availability.
+Tes SQL revisi yang dapat dijalankan di luar jam booking: `npm run test:db:revision` (constraint/RLS/report, rollback). `npm run test:db` dan `npm run test:concurrency` tetap memerlukan slot hari ini sebelum cutoff. Setelah pukul 14.30 WIB, booking sukses/race harus dilaporkan BLOCKED dan diulang saat jadwal terbuka; jangan mengubah jam atau memalsukan availability.
 
 ## Buka / Tutup Free Visit per tanggal
 

@@ -17,7 +17,7 @@ select id,gen_random_uuid(),'{}',marker,'6281234567890',(timestamp '1903-01-01 1
 select pg_temp.assert((select array_agg(slot order by slot)=array['11:00','12:00','13:00','14:00','15:00'] from public.availability((now() at time zone 'Asia/Jakarta')::date)),'exact five slots');
 select pg_temp.assert((select bool_and(not available) from public.availability((now() at time zone 'Asia/Jakarta')::date+1)),'same-day only');
 select pg_temp.assert((select bool_and(available=(
- (((now() at time zone 'Asia/Jakarta')::date+slot::time) at time zone 'Asia/Jakarta') >= now()+interval '60 minutes'
+ (((now() at time zone 'Asia/Jakarta')::date+slot::time) at time zone 'Asia/Jakarta') >= now()+interval '30 minutes'
  and not exists(select 1 from public.reservations r where r.appointment_at=(((now() at time zone 'Asia/Jakarta')::date+slot::time) at time zone 'Asia/Jakarta') and status<>'cancelled')
 )) from public.availability((now() at time zone 'Asia/Jakarta')::date)),'actual Jakarta cutoff');
 select pg_temp.invalid(format('update public.reservations set %I=%L::numeric where id=%L',col,val,id))

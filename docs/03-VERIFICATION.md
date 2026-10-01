@@ -1,3 +1,16 @@
+# Verifikasi cutoff 30 menit — 1 Oktober 2026, 15.41–15.44 WIB
+
+PASS untuk perubahan cutoff: konfigurasi aplikasi, keterangan UI, availability SQL dan booking SQL memakai 30 menit. Slot 11.00 dapat dipesan sampai 10.30 WIB (inklusif). Lima slot dan penutupan manual admin dipertahankan.
+
+- Lint, typecheck, production build: PASS.
+- Unit: 106 tes PASS, termasuk tepat 30 menit, 1 ms setelah batas, dan jendela 30–60 menit.
+- Browser mobile/desktop: 18 tes PASS.
+- Rehearsal migration dengan rollback dan database/RLS/report setelah migration: PASS. Target lakuh-fitting terverifikasi; migration 20261001000200 diterapkan.
+- Secret scan: PASS; tidak mencetak nilai secret. Data fixture SQL seluruhnya rollback; tidak ada cleanup global atau booking permanen baru.
+- Booking sukses/concurrency live tidak diulang: waktu pengujian sudah lewat slot terakhir 15.00 WIB. Risiko tersisa: belum menguji booking live dalam jendela baru 30–60 menit.
+- File perubahan: konfigurasi jadwal, reservation-form, booking unit test, tiga SQL test, migration cutoff baru, README, PRD, dan catatan ini.
+- Rollback bila ada regresi: migration kompensasi untuk kedua fungsi SQL kembali ke 60 menit dan revert konfigurasi/UI; jangan menghapus migration yang sudah diterapkan.
+
 # Verifikasi — Appointment Free Visit
 
 ## Kontrol tanggal manual — 1 Oktober 2026 (Asia/Jakarta)
