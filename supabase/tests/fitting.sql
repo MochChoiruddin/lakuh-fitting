@@ -7,7 +7,7 @@ insert into fixture(payload,admin_id) select jsonb_build_object('key',gen_random
 select pg_temp.assert((select payload->>'slot' is not null from fixture),'a real unoccupied same-day slot exists before cutoff');
 select pg_temp.assert((select count(*)=5 from public.availability((now() at time zone 'Asia/Jakarta')::date)),'five slots');
 select pg_temp.assert((select bool_and(a.available = (
-  (((now() at time zone 'Asia/Jakarta')::date + a.slot::time) at time zone 'Asia/Jakarta') >= now()+interval '60 minutes'
+  (((now() at time zone 'Asia/Jakarta')::date + a.slot::time) at time zone 'Asia/Jakarta') >= now()+interval '30 minutes'
   and not exists(select 1 from public.reservations r where r.appointment_at=(((now() at time zone 'Asia/Jakarta')::date + a.slot::time) at time zone 'Asia/Jakarta') and r.status<>'cancelled')
 )) from public.availability((now() at time zone 'Asia/Jakarta')::date) a),'database Jakarta cutoff and occupancy');
 select pg_temp.assert((select bool_and(not available) from public.availability((now() at time zone 'Asia/Jakarta')::date+1)),'tomorrow unavailable');

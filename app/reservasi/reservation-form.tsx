@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { SCHEDULE } from "@/lib/schedule.mjs";
 import { receiptWhatsAppUrl } from "@/lib/receipt-whatsapp";
 import {
   customerErrors,
@@ -341,7 +342,7 @@ export default function ReservationForm({ today }: { today: string }) {
                         ? "Free Visit tutup hari ini. Silakan kembali pada hari lain."
                         : !slots.some((s) => s.available)
                           ? "Jadwal hari ini sudah penuh atau melewati batas reservasi."
-                          : "Reservasi ditutup 60 menit sebelum jadwal."}
+                          : `Reservasi ditutup ${SCHEDULE.cutoffMinutes} menit sebelum jadwal.`}
                 </p>
                 {availabilityError && (
                   <>

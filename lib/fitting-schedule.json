@@ -1,6 +1,6 @@
 {
   "startHour": 11,
   "endHour": 15,
-  "cutoffMinutes": 60,
+  "cutoffMinutes": 30,
   "timeZone": "Asia/Jakarta"
 }

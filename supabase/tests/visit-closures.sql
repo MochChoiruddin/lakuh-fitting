@@ -39,7 +39,7 @@ select public.set_visit_day(day,false) from closure_fixture;
 reset role;
 select pg_temp.assert(not (public.visit_availability(day)->>'closed')::boolean,'reopened flag') from closure_fixture;
 select pg_temp.assert((select bool_and(available=(
- (((day+a.slot::time) at time zone 'Asia/Jakarta')>=now()+interval '60 minutes')
+ (((day+a.slot::time) at time zone 'Asia/Jakarta')>=now()+interval '30 minutes')
  and not exists(select 1 from public.reservations r where r.appointment_at=((day+a.slot::time) at time zone 'Asia/Jakarta') and r.status<>'cancelled')
 )) from public.availability(day) a),'reopen respects cutoff and existing occupancy') from closure_fixture;
 select pg_temp.assert(not exists(select 1 from public.visit_days where visit_date=date '2098-10-05'),'fixture future date absent');

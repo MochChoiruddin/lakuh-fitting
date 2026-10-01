@@ -6,7 +6,7 @@ Website reservasi kunjungan butik dengan judul **Appointment Free Visit**, admin
 
 ## Alur publik
 
-1. **Pilih jam kunjungan:** hanya tanggal hari ini di Asia/Jakarta, ditampilkan sebagai informasi tanpa kalender. Lima waktu mulai 11.00–15.00 WIB, grid dua kolom, satu customer per slot. Cutoff 60 menit; slot lewat/terisi disabled. Error API menampilkan error/retry, bukan jadwal penuh palsu.
+1. **Pilih jam kunjungan:** hanya tanggal hari ini di Asia/Jakarta, ditampilkan sebagai informasi tanpa kalender. Lima waktu mulai 11.00–15.00 WIB, grid dua kolom, satu customer per slot. Cutoff 30 menit; slot lewat/terisi disabled. Error API menampilkan error/retry, bukan jadwal penuh palsu.
 2. **Isi identitas dan informasi acara:** nama lengkap dan WhatsApp wajib, WA dinormalisasi ke 62. Berat badan wajib angka finite 20–300 kg dan tinggi badan wajib angka finite 80–250 cm. Informasi rencana acara berupa teks opsional. Pilih tanggal acara mulai tanggal kunjungan atau centang belum memiliki tanggal pasti; checkbox mengosongkan dan menonaktifkan tanggal.
 3. **Baca syarat serta berikan persetujuan:** semua teks lengkap, kotak kuning lembut, ringkasan kunjungan/nama/WA/berat/tinggi/acara dan empat checkbox terpisah. Submit hanya aktif bila semua data dan consent valid. Tidak ada kewajiban menggulir panel tersembunyi untuk membuka checkbox. Receipt menampilkan referensi dan data utama yang tersimpan.
 
@@ -24,7 +24,7 @@ Admin terdaftar melalui Supabase Auth dapat mencari/filter, melihat informasi re
 
 **Export Excel** menghasilkan XLSX asli berisi sheet Ringkasan dan Reservasi, seluruh baris periode terpilih tanpa batas 100 hasil dashboard. Kolom mencakup referensi, jadwal WIB, identitas/WA, berat badan dan tinggi badan, tanggal acara, status reservasi/reminder, percobaan reminder, waktu dibuat dan perubahan status. Input customer berupa sel teks, tidak dieksekusi sebagai formula. Export tidak berisi consent, token, error internal atau audit actor. Hanya admin dengan session dan membership aktif yang dapat mengunduh.
 
-Satu reminder H-2 per booking, maksimal tiga percobaan dengan mekanisme retry aman yang sudah ada. Appointment 15.00 → due_at 13.00. Jika booking dibuat setelah H-2 namun sebelum cutoff H-1, next_attempt_at adalah waktu booking agar cron berikutnya memprosesnya. Cancelled/completed/no_show tidak dikirim. Meta tanpa kredensial tidak menghasilkan sukses palsu.
+Satu reminder H-2 per booking, maksimal tiga percobaan dengan mekanisme retry aman yang sudah ada. Appointment 15.00 → due_at 13.00. Jika booking dibuat setelah H-2 namun sebelum cutoff 30 menit, next_attempt_at adalah waktu booking agar cron berikutnya memprosesnya. Cancelled/completed/no_show tidak dikirim. Meta tanpa kredensial tidak menghasilkan sukses palsu.
 
 ## Asumsi
 

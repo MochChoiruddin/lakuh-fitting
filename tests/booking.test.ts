@@ -26,15 +26,20 @@ describe("same-day Jakarta availability", () => {
       ).toBe(false);
     }
   });
-  it("applies exact 60-minute cutoff and 11:36 acceptance", () => {
+  it("accepts slots in the newly opened 30–60 minute window", () => {
     expect(
-      bookable("2026-09-27", "15:00", new Date("2026-09-27T14:00:00+07:00")),
+      bookable("2026-09-27", "11:00", new Date("2026-09-27T10:15:00+07:00")),
+    ).toBe(true);
+  });
+  it("applies exact 30-minute cutoff and 11:36 acceptance", () => {
+    expect(
+      bookable("2026-09-27", "15:00", new Date("2026-09-27T14:30:00+07:00")),
     ).toBe(true);
     expect(
       bookable(
         "2026-09-27",
         "15:00",
-        new Date("2026-09-27T14:00:00.001+07:00"),
+        new Date("2026-09-27T14:30:00.001+07:00"),
       ),
     ).toBe(false);
     expect(
