@@ -9,28 +9,45 @@ vi.mock("../lib/http", async (original) => ({
 import { GET } from "../app/api/availability/route";
 const request = () =>
   new Request(`http://localhost/api/availability?date=${jakartaDate()}`);
-it("returns the five database slots including actual disabled state", async () => {
-  const data = SLOTS.map((slot, i) => ({ slot, available: i > 1 }));
+it("returns five slots and the explicit manual closure flag", async () => {
+  const data = {
+    slots: SLOTS.map((slot, i) => ({ slot, available: i > 1 })),
+    closed: false,
+  };
   mocks.rpc.mockResolvedValue({ data, error: null });
   const response = await GET(request());
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ slots: data });
-});
-it("fails safely if the database still returns the old ten-slot schedule", async () => {
-  mocks.rpc.mockResolvedValue({
-    data: [...SLOTS, "16:00", "17:00", "18:00", "19:00", "20:00"].map(
-      (slot) => ({ slot, available: true }),
-    ),
-    error: null,
+  expect(await response.json()).toEqual(data);
+  expect(mocks.rpc).toHaveBeenCalledWith("visit_availability", {
+    p_date: jakartaDate(),
   });
-  const response = await GET(request());
-  expect(response.status).toBe(503);
-  expect(await response.json()).not.toHaveProperty("slots");
 });
-it("rejects duplicate or malformed availability instead of marking everything unavailable", async () => {
-  mocks.rpc.mockResolvedValue({
-    data: SLOTS.map(() => ({ slot: "11:00", available: true })),
-    error: null,
-  });
-  expect((await GET(request())).status).toBe(503);
+it("distinguishes a manually closed date from a full day", async () => {
+  const data = {
+    slots: SLOTS.map((slot) => ({ slot, available: false })),
+    closed: true,
+  };
+  mocks.rpc.mockResolvedValue({ data, error: null });
+  expect(await (await GET(request())).json()).toEqual(data);
 });
+it.each([
+  {
+    closed: false,
+    slots: [...SLOTS, "16:00"].map((slot) => ({ slot, available: true })),
+  },
+  {
+    closed: false,
+    slots: SLOTS.map(() => ({ slot: "11:00", available: true })),
+  },
+  { slots: SLOTS.map((slot) => ({ slot, available: true })) },
+  { closed: true, slots: SLOTS.map((slot) => ({ slot, available: true })) },
+  null,
+])(
+  "fails safely for malformed or inconsistent database state",
+  async (data) => {
+    mocks.rpc.mockResolvedValue({ data, error: null });
+    const response = await GET(request());
+    expect(response.status).toBe(503);
+    expect(await response.json()).not.toHaveProperty("slots");
+  },
+);
