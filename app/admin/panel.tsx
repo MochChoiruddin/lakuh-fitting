@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { STATUSES, type Status } from "@/lib/booking";
 import Reports from "./reports";
 import ManualReminder from "./manual-reminder";
+import VisitDays from "./visit-days";
 type Reservation = {
   id: string;
   reference: string;
@@ -158,6 +159,7 @@ export default function AdminPanel({ authorized }: { authorized: boolean }) {
           >
             Keluar dari akun
           </button>
+          <VisitDays />
           <Reports revision={revision} />
           <div className="filters">
             <label>

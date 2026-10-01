@@ -69,6 +69,7 @@ export default function ReservationForm({ today }: { today: string }) {
     [slot, setSlot] = useState(""),
     [step, setStep] = useState(1);
   const [slots, setSlots] = useState<Availability[]>([]),
+    [closed, setClosed] = useState(false),
     [loading, setLoading] = useState(true),
     [availabilityError, setAvailabilityError] = useState("");
   const [error, setError] = useState(""),
@@ -129,12 +130,15 @@ export default function ReservationForm({ today }: { today: string }) {
           throw new Error("UNAVAILABLE");
         if (controller.signal.aborted) return;
         setSlots(data.slots);
+        setClosed(data.closed === true);
+        if (data.closed === true) setSlot("");
         setAvailabilityError("");
         setLoading(false);
       })
       .catch(() => {
         if (controller.signal.aborted) return;
         setSlots([]);
+        setClosed(false);
         setSlot("");
         setAvailabilityError(
           "Ketersediaan belum dapat dimuat. Silakan coba lagi.",
@@ -317,7 +321,9 @@ export default function ReservationForm({ today }: { today: string }) {
                         className={`slot ${s === slot ? "selected" : ""}`}
                         aria-pressed={s === slot}
                         disabled={
-                          loading || !slots.find((x) => x.slot === s)?.available
+                          loading ||
+                          closed ||
+                          !slots.find((x) => x.slot === s)?.available
                         }
                         onClick={() => setSlot(s)}
                       >
@@ -331,9 +337,11 @@ export default function ReservationForm({ today }: { today: string }) {
                     ? "Ketersediaan belum diketahui. Muat ulang jadwal untuk mencoba lagi."
                     : loading
                       ? "Memuat jadwal…"
-                      : !slots.some((s) => s.available)
-                        ? "Jadwal hari ini sudah penuh atau melewati batas reservasi."
-                        : "Reservasi ditutup 60 menit sebelum jadwal."}
+                      : closed
+                        ? "Free Visit tutup hari ini. Silakan kembali pada hari lain."
+                        : !slots.some((s) => s.available)
+                          ? "Jadwal hari ini sudah penuh atau melewati batas reservasi."
+                          : "Reservasi ditutup 60 menit sebelum jadwal."}
                 </p>
                 {availabilityError && (
                   <>
@@ -357,7 +365,7 @@ export default function ReservationForm({ today }: { today: string }) {
                 </div>
                 <button
                   className="primary"
-                  disabled={!slot || loading}
+                  disabled={!slot || loading || closed}
                   onClick={() => {
                     setError("");
                     setStep(2);

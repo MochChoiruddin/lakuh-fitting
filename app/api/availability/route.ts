@@ -7,12 +7,19 @@ export async function GET(req: Request) {
     if (!dates().includes(date))
       return json({ error: "Tanggal di luar periode reservasi." }, 400);
     await rateLimit(req, "availability", 180);
-    const { data, error } = await service().rpc("availability", {
+    const { data, error } = await service().rpc("visit_availability", {
       p_date: date,
     });
     if (error) throw error;
-    if (!validAvailability(data)) throw new Error("UNAVAILABLE");
-    return json({ slots: data });
+    if (
+      !data ||
+      typeof data.closed !== "boolean" ||
+      !validAvailability(data.slots) ||
+      (data.closed &&
+        data.slots.some((s: { available: boolean }) => s.available))
+    )
+      throw new Error("UNAVAILABLE");
+    return json({ slots: data.slots, closed: data.closed });
   } catch (e) {
     return failure(e);
   }

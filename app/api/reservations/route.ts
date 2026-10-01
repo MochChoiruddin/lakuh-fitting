@@ -23,6 +23,14 @@ export async function POST(req: Request) {
       p_input: b,
     });
     if (error) {
+      if (error.message.includes("VISIT_CLOSED"))
+        return json(
+          {
+            error:
+              "Free Visit tutup pada tanggal ini. Silakan pilih hari lain.",
+          },
+          409,
+        );
       if (error.code === "23505" || /CUTOFF|INVALID_SLOT/.test(error.message))
         return json(
           { error: "Jadwal sudah tidak tersedia. Silakan pilih jadwal lain." },

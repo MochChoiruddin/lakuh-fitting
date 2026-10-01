@@ -48,3 +48,9 @@ Akun Auth terkonfirmasi `lakuhattire@gmail.com` sudah didaftarkan ke `public.adm
 `npm run test:reports:live` menguji admin/manual reminder/Excel dengan fixture eksplisit dan cleanup di finally. URL WhatsApp diintersep agar tidak mengirim pesan. Uji worker global hanya pada database isolated; jangan dijalankan di Supabase shared.
 
 Tes SQL revisi yang dapat dijalankan di luar jam booking: `npm run test:db:revision` (constraint/RLS/report, rollback). `npm run test:db` dan `npm run test:concurrency` tetap memerlukan slot hari ini sebelum cutoff. Setelah pukul 14.00 WIB, booking sukses/race harus dilaporkan BLOCKED dan diulang saat jadwal terbuka; jangan mengubah jam atau memalsukan availability.
+
+## Buka / Tutup Free Visit per tanggal
+
+Di /admin, pilih **Tanggal Free Visit (WIB)** lalu **Tutup Free Visit** atau **Buka kembali Free Visit**. Semua tanggal terbuka secara default; Minggu dan hari libur tidak ditutup otomatis. Penutupan menolak reservasi baru di database, termasuk submit dari formulir lama, tetapi reservasi serta reminder yang sudah ada tetap berlaku. Tangani pembatalannya secara terpisah bila diperlukan.
+
+Migration: 20261001000100_manual_visit_closures.sql. Tes SQL: supabase/tests/visit-closures.sql (rollback, membutuhkan slot hari ini sebelum cutoff). Tes UI admin nyata dengan fixture tanggal tersendiri: node scripts/visit-closures-acceptance.mjs setelah production build.

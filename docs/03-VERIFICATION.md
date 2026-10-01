@@ -1,5 +1,21 @@
 # Verifikasi — Appointment Free Visit
 
+## Kontrol tanggal manual — 1 Oktober 2026 (Asia/Jakarta)
+
+PASS untuk fitur buka/tutup Free Visit per tanggal. Poin perubahan waktu dibatalkan oleh pengguna; lima slot, cutoff 60 menit, dan hari yang dapat dipesan tetap sama. Tidak ada penutupan otomatis Minggu/hari libur. Default semua tanggal buka sampai admin memilih tutup.
+
+- Panel admin: pilih tanggal WIB, lihat status, Tutup Free Visit (dengan konfirmasi), atau Buka kembali Free Visit. Status gagal dimuat tidak diasumsikan buka.
+- Customer: tanggal tutup menampilkan pemberitahuan khusus dan kelima slot nonaktif. Halaman/form lama yang sudah dibuka tetap ditolak saat POST booking setelah penutupan.
+- Database: visit_days dilindungi RLS; hanya RPC admin terautentikasi boleh mengubah status. Booking dan perubahan tanggal berbagi advisory transaction lock per tanggal. Existing idempotency receipt tetap bisa direplay saat tanggal sudah ditutup; tidak membuat row/job tambahan. Reservasi/reminder lama tidak dibatalkan otomatis.
+- Migration 20261001000100_manual_visit_closures.sql diuji terlebih dahulu bersama suite SQL dalam satu transaksi rollback, kemudian diterapkan ke project lakuh-fitting yang URL dan linked reference-nya diverifikasi. Migration historis tidak diubah.
+- Lint, typecheck, 105 unit tests, production build PASS. Browser menguji 18 skenario termasuk saved link dan form stale. Run pertama menyelesaikan semua assertion tetapi teardown dev server Windows menggantung; dihentikan dan diulang memakai production server terpisah.
+- Live UI admin sintetis PASS: dismiss/accept penutupan tanggal fixture 2098-10-05, persisted actor, public closure flag, buka kembali, tampilan tanpa overflow di 360/390/430px, HTTP 401 tanpa session dan 403 setelah membership dicabut. Screenshot hanya region kontrol tanggal, tidak menampilkan data pelanggan.
+- Baseline live: reservations=3, reminder_jobs=3, reservation_audit=10; sesudah cleanup tetap 3/3/10. Hanya override tanggal milik actor fixture, akun/admin sintetis dan bucket login run yang dibersihkan dengan key/ID eksplisit. Tidak ada pengiriman WhatsApp atau global cleanup.
+- SQL visit-closures.sql PASS: close/reopen, existing booking/job, replay, new-booking denial, cutoff/occupancy setelah reopen dan RLS. Tes tidak membuktikan concurrency melalui dua koneksi; jaminan serialisasi berasal dari lock bersama di fungsi SQL. Blocker historis worker isolated/Docker tetap di luar perubahan ini.
+
+File fitur: app/admin/visit-days.tsx, app/admin/panel.tsx, app/api/admin/visit-days/route.ts, app/api/availability/route.ts, app/api/reservations/route.ts, app/reservasi/reservation-form.tsx, lib/visit-days.ts, migration baru. Coverage: tests/visit-days.test.ts, tests/availability.test.ts, tests/browser/visit-days.spec.ts, supabase/tests/visit-closures.sql, scripts/visit-closures-acceptance.mjs. Dokumentasi: README.md dan laporan ini. Favicon/CSS halaman tidak diubah.
+
+
 ## Final verification — 30 September 2026, 10.40–10.44 WIB (Asia/Jakarta)
 
 **Keputusan final gate keseluruhan: FAIL (belum lengkap karena satu BLOCKED infrastruktur). Seluruh 12 pemeriksaan fungsional yang diminta PASS.** Booking sukses, concurrency dan idempotency/replay yang sebelumnya terblokir cutoff kini benar-benar dijalankan dan lulus. Runner live keluar dengan kode 1 karena Docker daemon tidak tersedia untuk isolated worker/global RPC tests; bukan kegagalan booking. Tidak menyatakan runner keseluruhan PASS.
